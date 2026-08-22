@@ -131,7 +131,7 @@ body{
   .nav-btn .ni{font-size:22px;margin:0}
   .nav-btn.active{background:rgba(52,224,196,.15);color:var(--mint)}
   #main{padding-bottom:66px;min-height:0}
-  #topbar{flex-wrap:wrap;padding:14px 16px 10px;gap:10px}
+  #topbar{flex-wrap:wrap;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 10px;gap:10px}
   .greet{font-size:17px}
   .date{width:100%;order:3}
   .top-actions{margin-left:0;width:100%;order:4;flex-wrap:wrap}
