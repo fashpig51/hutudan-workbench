@@ -149,7 +149,21 @@ window.WB = window.WB || {};
     E.setSync('wait', '恢复中…');
     try {
       const text = await file.text();
-      const obj = JSON.parse(text);
+      let obj;
+      try {
+        obj = JSON.parse(text);
+      } catch (_) {
+        // 可能是从 GitHub 网页直接保存的 HTML 包装页
+        const trimmed = text.trim().slice(0, 200).toLowerCase();
+        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.includes('<head') || trimmed.includes('github')) {
+          E.toast('这是网页版，不是原始备份文件；请在 GitHub 文件页点 Raw 后再保存');
+        } else {
+          E.toast('这不是工作台备份文件');
+        }
+        const cloud = WB.store.hasCloud();
+        E.setSync(cloud ? 'on' : 'off', cloud ? '已同步' : '纯本地模式');
+        return;
+      }
       if (!obj.enc) { E.toast('这不是工作台备份文件'); return; }
       const json = await WB.crypto.decrypt(obj.enc, WB.store.getPassphrase());
       const payload = JSON.parse(json);
