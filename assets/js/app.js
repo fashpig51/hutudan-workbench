@@ -54,7 +54,7 @@ window.WB = window.WB || {};
         <input id="search" placeholder="搜索（本设备）">
         <button id="exportBtn" class="btn-ghost" title="导出加密备份文件（存到微信/邮箱/网盘）">📤 备份</button>
         <button id="importBtn" class="btn-ghost" title="从备份文件恢复数据">📥 恢复</button>
-        <input id="importFile" type="file" accept="application/json,.json" style="display:none">
+        <input id="importFile" type="file" accept="application/json,.json,.txt" style="display:none">
         <button id="lockBtn" class="btn-ghost" title="退出当前口令">锁</button>
       </div>`;
     E.$('#lockBtn', tb).addEventListener('click', () => location.reload());
@@ -175,7 +175,9 @@ window.WB = window.WB || {};
           count++;
         }
       }
-      E.toast('已恢复 ' + count + ' 条，刷新中…');
+      const ext = (file.name || '').split('.').pop().toLowerCase();
+      const tip = ext === 'json' ? '' : '（建议以后保存为 .json 扩展名）';
+      E.toast('已恢复 ' + count + ' 条' + tip + '，刷新中…');
       setTimeout(() => location.reload(), 900);
     } catch (e) {
       E.toast('恢复失败：文件损坏或口令不对');
