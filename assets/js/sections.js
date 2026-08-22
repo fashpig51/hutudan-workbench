@@ -5,7 +5,7 @@
 window.WB = window.WB || {};
 WB.sections = WB.sections || {};
 
-// ---------- 工作：待办 ----------
+// ---------- 工作：待办 + 日历 ----------
 WB.sections.work = function (root) {
   const E = WB.ui;
   root.innerHTML = `
@@ -20,36 +20,95 @@ WB.sections.work = function (root) {
       <input id="w-due" type="date">
       <button id="w-add" class="btn-primary">添加</button>
     </div>
-    <div class="filter-row">
-      <button class="chip active" data-f="all">全部</button>
-      <button class="chip" data-f="active">进行中</button>
-      <button class="chip" data-f="done">已完成</button>
+    <div class="tool-row">
+      <div class="filter-row" id="w-filterRow">
+        <button class="chip active" data-f="all">全部</button>
+        <button class="chip" data-f="active">进行中</button>
+        <button class="chip" data-f="done">已完成</button>
+      </div>
+      <button id="w-viewToggle" class="btn-ghost">📅 日历</button>
     </div>
+    <div id="w-calendar" class="calendar" style="display:none"></div>
+    <div id="w-dayLabel" class="day-label" style="display:none"></div>
     <ul id="w-list" class="list"></ul>`;
 
   let filter = 'all';
+  let view = 'list';
+  let cur = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  let selectedDate = new Date().toISOString().slice(0, 10);
+  let dueMapCache = {};
+
+  function itemEl(r) {
+    return E.el(`
+      <li class="item ${r.status === 'done' ? 'done' : ''}">
+        <label class="check"><input type="checkbox" data-id="${r.id}" ${r.status === 'done' ? 'checked' : ''}><span></span></label>
+        <div class="item-main">
+          <div class="item-title">${E.escapeHtml(r.title)}</div>
+          ${r.due_date ? `<div class="item-sub">截止 ${E.fmtDate(r.due_date)}</div>` : ''}
+        </div>
+        <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
+        <button class="del" data-id="${r.id}" title="删除">✕</button>
+      </li>`);
+  }
+
+  function renderList(rows) {
+    const ul = E.$('#w-list', root);
+    ul.innerHTML = '';
+    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有待办，加一条吧</li>')); return; }
+    rows.forEach(r => ul.appendChild(itemEl(r)));
+  }
+
+  function renderCalendar(dueMap) {
+    const cal = E.$('#w-calendar', root);
+    cal.innerHTML = '';
+    const { y, m } = cur;
+    const head = E.el(`
+      <div class="cal-head">
+        <button id="calPrev" class="cal-nav">‹</button>
+        <span class="cal-title">${y}年${m + 1}月</span>
+        <button id="calNext" class="cal-nav">›</button>
+      </div>`);
+    const grid = E.el(`<div class="cal-grid"></div>`);
+    ['日', '一', '二', '三', '四', '五', '六'].forEach(d => grid.appendChild(E.el(`<div class="cal-dow">${d}</div>`)));
+    const firstDow = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < firstDow; i++) grid.appendChild(E.el(`<div class="cal-cell empty"></div>`));
+    for (let d = 1; d <= days; d++) {
+      const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cnt = (dueMap[ds] || []).length;
+      const cell = E.el(`
+        <div class="cal-cell ${cnt ? 'has' : ''} ${ds === todayStr ? 'today' : ''} ${ds === selectedDate ? 'sel' : ''}" data-date="${ds}">
+          <span class="cal-num">${d}</span>
+          ${cnt ? `<span class="cal-dot"></span>` : ''}
+        </div>`);
+      grid.appendChild(cell);
+    }
+    cal.appendChild(head);
+    cal.appendChild(grid);
+  }
+
+  function renderDayList() {
+    const label = E.$('#w-dayLabel', root);
+    label.style.display = 'block';
+    label.textContent = `${selectedDate} 的待办（${ (dueMapCache[selectedDate] || []).length } 条）`;
+    renderList(dueMapCache[selectedDate] || []);
+  }
 
   async function render() {
     let rows = await WB.store.list('todos', ['title', 'note']);
     rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    if (filter === 'active') rows = rows.filter(r => r.status !== 'done');
-    if (filter === 'done') rows = rows.filter(r => r.status === 'done');
-    const ul = E.$('#w-list', root);
-    ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有待办，加一条吧</li>')); return; }
-    rows.forEach(r => {
-      const li = E.el(`
-        <li class="item ${r.status === 'done' ? 'done' : ''}">
-          <label class="check"><input type="checkbox" data-id="${r.id}" ${r.status === 'done' ? 'checked' : ''}><span></span></label>
-          <div class="item-main">
-            <div class="item-title">${E.escapeHtml(r.title)}</div>
-            ${r.due_date ? `<div class="item-sub">截止 ${E.fmtDate(r.due_date)}</div>` : ''}
-          </div>
-          <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
-          <button class="del" data-id="${r.id}" title="删除">✕</button>
-        </li>`);
-      ul.appendChild(li);
-    });
+    dueMapCache = {};
+    rows.forEach(t => { if (t.due_date) { (dueMapCache[t.due_date] = dueMapCache[t.due_date] || []).push(t); } });
+    if (view === 'calendar') {
+      renderCalendar(dueMapCache);
+      renderDayList();
+    } else {
+      let f = rows;
+      if (filter === 'active') f = f.filter(r => r.status !== 'done');
+      if (filter === 'done') f = f.filter(r => r.status === 'done');
+      renderList(f);
+    }
   }
 
   E.$('#w-add', root).addEventListener('click', async () => {
@@ -66,6 +125,15 @@ WB.sections.work = function (root) {
     render();
   });
 
+  E.$('#w-viewToggle', root).addEventListener('click', () => {
+    view = (view === 'list') ? 'calendar' : 'list';
+    E.$('#w-calendar', root).style.display = (view === 'calendar') ? 'block' : 'none';
+    E.$('#w-dayLabel', root).style.display = (view === 'calendar') ? 'block' : 'none';
+    E.$('#w-filterRow', root).style.display = (view === 'calendar') ? 'none' : 'flex';
+    E.$('#w-viewToggle', root).textContent = (view === 'calendar') ? '☰ 列表' : '📅 日历';
+    render();
+  });
+
   root.addEventListener('click', async (e) => {
     if (e.target.matches('.chip')) {
       filter = e.target.dataset.f;
@@ -75,6 +143,13 @@ WB.sections.work = function (root) {
     if (e.target.matches('.del')) {
       await WB.store.remove('todos', e.target.dataset.id);
       render();
+    }
+    if (e.target.matches('#calPrev')) { cur.m--; if (cur.m < 0) { cur.m = 11; cur.y--; } renderCalendar(dueMapCache); }
+    if (e.target.matches('#calNext')) { cur.m++; if (cur.m > 11) { cur.m = 0; cur.y++; } renderCalendar(dueMapCache); }
+    if (e.target.matches('.cal-cell') && e.target.dataset.date) {
+      selectedDate = e.target.dataset.date;
+      E.$$('.cal-cell', root).forEach(c => c.classList.toggle('sel', c.dataset.date === selectedDate));
+      renderDayList();
     }
   });
 
@@ -185,7 +260,7 @@ WB.sections.study = function (root) {
   renderBooks();
 };
 
-// ---------- 日常生活：习惯打卡 + 账本 ----------
+// ---------- 日常生活：习惯打卡 ----------
 WB.sections.life = function (root) {
   const E = WB.ui;
   root.innerHTML = `
@@ -197,18 +272,6 @@ WB.sections.life = function (root) {
         <button id="h-add" class="btn-primary">添加</button>
       </div>
       <ul id="h-list" class="list"></ul>
-    </div>
-    <div class="sub-block">
-      <h3>账本</h3>
-      <div class="add-row">
-        <input id="t-title" placeholder="备注，如 午饭" maxlength="80">
-        <input id="t-amount" type="number" placeholder="金额" step="0.01">
-        <select id="t-type"><option value="expense">支出</option><option value="income">收入</option></select>
-        <input id="t-cat" placeholder="分类" maxlength="40">
-        <button id="t-add" class="btn-primary">记一笔</button>
-      </div>
-      <div id="t-summary" class="summary"></div>
-      <ul id="t-list" class="list"></ul>
     </div>`;
 
   async function renderHabits() {
@@ -232,28 +295,6 @@ WB.sections.life = function (root) {
       ul.appendChild(li);
     });
   }
-  async function renderTxns() {
-    let rows = await WB.store.list('transactions', ['title', 'category']);
-    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const ul = E.$('#t-list', root);
-    ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有账目</li>')); return; }
-    let inc = 0, exp = 0;
-    rows.forEach(r => {
-      const amt = parseFloat(r.amount) || 0;
-      if (r.type === 'income') inc += amt; else exp += amt;
-      const li = E.el(`
-        <li class="item">
-          <div class="item-main">
-            <div class="item-title">${E.escapeHtml(r.title)}${r.category ? ' · ' + E.escapeHtml(r.category) : ''}</div>
-          </div>
-          <span class="amount ${r.type === 'income' ? 'in' : 'out'}">${r.type === 'income' ? '+' : '-'}${amt.toFixed(2)}</span>
-          <button class="del" data-id="${r.id}" title="删除">✕</button>
-        </li>`);
-      ul.appendChild(li);
-    });
-    E.$('#t-summary', root).textContent = `本月收入 ${inc.toFixed(2)} ｜ 支出 ${exp.toFixed(2)} ｜ 结余 ${(inc - exp).toFixed(2)}`;
-  }
 
   E.$('#h-add', root).addEventListener('click', async () => {
     const name = E.$('#h-name', root).value.trim();
@@ -261,22 +302,6 @@ WB.sections.life = function (root) {
     await WB.store.upsert('habits', ['name'], { name: name, last_checkin: '', streak: 0 });
     E.$('#h-name', root).value = '';
     renderHabits();
-  });
-  E.$('#t-add', root).addEventListener('click', async () => {
-    const title = E.$('#t-title', root).value.trim();
-    const amount = parseFloat(E.$('#t-amount', root).value);
-    if (!title || isNaN(amount)) { E.toast('备注和金额都要填'); return; }
-    await WB.store.upsert('transactions', ['title', 'category'], {
-      title: title,
-      amount: amount,
-      type: E.$('#t-type', root).value,
-      category: E.$('#t-cat', root).value || '',
-      txn_date: new Date().toISOString().slice(0, 10)
-    });
-    E.$('#t-title', root).value = '';
-    E.$('#t-amount', root).value = '';
-    E.$('#t-cat', root).value = '';
-    renderTxns();
   });
 
   root.addEventListener('click', async (e) => {
@@ -294,11 +319,8 @@ WB.sections.life = function (root) {
       renderHabits();
     }
     if (e.target.matches('#h-list .del')) { await WB.store.remove('habits', e.target.dataset.id); renderHabits(); }
-    if (e.target.matches('#t-list .del')) { await WB.store.remove('transactions', e.target.dataset.id); renderTxns(); }
   });
 
   WB.store.subscribe('habits', ['name'], renderHabits);
-  WB.store.subscribe('transactions', ['title', 'category'], renderTxns);
   renderHabits();
-  renderTxns();
 };

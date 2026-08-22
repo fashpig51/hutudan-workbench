@@ -16,8 +16,7 @@ window.WB = window.WB || {};
     { t: 'todos', enc: ['title', 'note'] },
     { t: 'notes', enc: ['title', 'content'] },
     { t: 'books', enc: ['title', 'author'] },
-    { t: 'habits', enc: ['name'] },
-    { t: 'transactions', enc: ['title', 'category'] }
+    { t: 'habits', enc: ['name'] }
   ];
 
   function buildShell() {

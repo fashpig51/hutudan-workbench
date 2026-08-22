@@ -58,28 +58,12 @@ create table if not exists habits (
 );
 create index if not exists idx_habits_ws on habits(workspace_id);
 
--- 5) 账本 transactions
-create table if not exists transactions (
-  id uuid primary key,
-  workspace_id text not null,
-  title text,
-  amount numeric default 0,
-  type text default 'expense',
-  category text,
-  txn_date text,
-  is_deleted boolean default false,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-create index if not exists idx_txns_ws on transactions(workspace_id);
-
 -- ---------- 安全规则（RLS） ----------
 -- 开启行级安全，允许 anon 角色对本应用全表读写（数据安全靠前端口令加密）
 alter table todos enable row level security;
 alter table notes enable row level security;
 alter table books enable row level security;
 alter table habits enable row level security;
-alter table transactions enable row level security;
 
 drop policy if exists anon_all_todos on todos;
 create policy anon_all_todos on todos for all to anon using (true) with check (true);
@@ -89,12 +73,9 @@ drop policy if exists anon_all_books on books;
 create policy anon_all_books on books for all to anon using (true) with check (true);
 drop policy if exists anon_all_habits on habits;
 create policy anon_all_habits on habits for all to anon using (true) with check (true);
-drop policy if exists anon_all_txns on transactions;
-create policy anon_all_txns on transactions for all to anon using (true) with check (true);
 
 -- 开启实时推送（这台改了另一台立刻收到）
 alter publication supabase_realtime add table todos;
 alter publication supabase_realtime add table notes;
 alter publication supabase_realtime add table books;
 alter publication supabase_realtime add table habits;
-alter publication supabase_realtime add table transactions;
