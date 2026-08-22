@@ -136,5 +136,7 @@ WB.store = (function () {
     } catch (e) { /* 忽略 */ }
   }
 
-  return { init, hasCloud, getWorkspaceId, list, upsert, remove, subscribe, heartbeat };
+  function getPassphrase() { return passphrase; }
+
+  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, remove, subscribe, heartbeat };
 })();

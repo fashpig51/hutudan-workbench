@@ -114,12 +114,31 @@ body{
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(20,28,40,.95);border:1px solid var(--glass-bd);color:var(--text);padding:11px 20px;border-radius:12px;font-size:14px;z-index:99;box-shadow:var(--shadow)}
 
 @media (max-width:720px){
-  #sidebar{width:74px;padding:16px 10px}
-  .brand span,.nav-btn{font-size:0}
-  .nav-btn .ni{font-size:20px;margin:0 auto}
-  .side-foot{font-size:0}
-  .sync-wrap{justify-content:center}
-  .ver{display:none}
-  #search{width:120px}
+  body{overflow:auto}
+  #app{flex-direction:column;height:100vh;height:100dvh}
+  /* 手机端：左侧导航改为底部一排图标（像微信底栏） */
+  #sidebar{
+    position:fixed;left:0;right:0;bottom:0;width:100%;
+    flex-direction:row;align-items:stretch;
+    padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));
+    border-right:none;border-top:1px solid var(--glass-bd);
+    background:linear-gradient(0deg,rgba(11,15,23,.97),rgba(15,22,34,.94));
+    backdrop-filter:blur(14px);z-index:40;order:2
+  }
+  .brand,.side-foot{display:none}
+  #nav{flex-direction:row;flex:1;gap:0;justify-content:space-around;align-items:stretch}
+  .nav-btn{flex:1;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px 2px;border-radius:12px;font-size:11px}
+  .nav-btn .ni{font-size:22px;margin:0}
+  .nav-btn.active{background:rgba(52,224,196,.15);color:var(--mint)}
+  #main{padding-bottom:66px;min-height:0}
+  #topbar{flex-wrap:wrap;padding:14px 16px 10px;gap:10px}
   .greet{font-size:17px}
+  .date{width:100%;order:3}
+  .top-actions{margin-left:0;width:100%;order:4;flex-wrap:wrap}
+  #search{flex:1;width:auto;min-width:0}
+  #content{padding:16px}
+  .add-row{flex-direction:column;align-items:stretch}
+  .add-row input,.add-row select{width:100%}
+  .btn-primary{width:100%}
+  .section-head h2{font-size:19px}
 }
