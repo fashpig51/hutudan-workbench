@@ -164,14 +164,30 @@ window.WB = window.WB || {};
         E.setSync(cloud ? 'on' : 'off', cloud ? '已同步' : '纯本地模式');
         return;
       }
-      if (!obj.enc) { E.toast('这不是工作台备份文件'); return; }
-      const json = await WB.crypto.decrypt(obj.enc, WB.store.getPassphrase());
-      const payload = JSON.parse(json);
+
+      let payload, rawMode = false;
+      if (obj.enc) {
+        // 格式 A：前端"导出"按钮生成的整包加密文件
+        const json = await WB.crypto.decrypt(obj.enc, WB.store.getPassphrase());
+        payload = JSON.parse(json);
+      } else if (obj.tables) {
+        // 格式 B：自动备份仓库生成的明文结构文件（tables 内字段已是密文）
+        payload = { data: obj.tables };
+        rawMode = true;
+      } else {
+        E.toast('这不是工作台备份文件');
+        return;
+      }
+
       let count = 0;
       for (const { t, enc } of TABLES) {
         const rows = (payload.data && payload.data[t]) || [];
         for (const row of rows) {
-          await WB.store.upsert(t, enc, row);
+          if (rawMode) {
+            await WB.store.upsertRaw(t, row);
+          } else {
+            await WB.store.upsert(t, enc, row);
+          }
           count++;
         }
       }
