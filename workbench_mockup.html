@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>糊涂蛋工作台 · 效果图 v1</title>
+<style>
+  :root{
+    --bg:#0a0c10;
+    --glass:rgba(255,255,255,0.045);
+    --glass-strong:rgba(255,255,255,0.07);
+    --line:rgba(255,255,255,0.09);
+    --ink:#eef1f6;
+    --ink-2:#aab2c0;
+    --ink-3:#6b7384;
+    --accent:#34d399;      /* 薄荷绿 主强调 */
+    --accent-soft:rgba(52,211,153,0.14);
+    --warn:#fbbf24;        /* 琥珀 提醒 */
+    --radius:18px;
+    --shadow:0 12px 40px rgba(0,0,0,0.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(900px 600px at 12% -5%, rgba(52,211,153,0.16), transparent 60%),
+      radial-gradient(800px 600px at 100% 0%, rgba(96,124,255,0.14), transparent 55%),
+      var(--bg);
+    min-height:100vh;
+    display:flex;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex;width:100%;height:100vh;padding:18px;gap:18px}
+
+  /* 左侧导航 */
+  .nav{
+    width:248px;flex:0 0 248px;
+    background:var(--glass);
+    backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 16px;
+    display:flex;flex-direction:column;gap:8px;
+    box-shadow:var(--shadow);
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+  .logo{
+    width:38px;height:38px;border-radius:11px;flex:0 0 38px;
+    background:linear-gradient(140deg,var(--accent),#22b07e);
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;font-weight:700;color:#06281d;
+    box-shadow:0 6px 18px rgba(52,211,153,0.35);
+  }
+  .brand b{font-size:15px;letter-spacing:.5px}
+  .brand span{display:block;font-size:11px;color:var(--ink-3);margin-top:2px}
+  .nav-group{font-size:11px;color:var(--ink-3);padding:14px 10px 6px;letter-spacing:1px}
+  .nav-item{
+    display:flex;align-items:center;gap:12px;
+    padding:11px 12px;border-radius:13px;cursor:pointer;
+    color:var(--ink-2);font-size:14px;transition:.18s;
+  }
+  .nav-item .ic{width:20px;text-align:center;font-size:16px;opacity:.9}
+  .nav-item:hover{background:var(--glass-strong);color:var(--ink)}
+  .nav-item.active{
+    background:var(--accent-soft);color:var(--ink);
+    box-shadow:inset 0 0 0 1px rgba(52,211,153,0.35);
+  }
+  .nav-item.active .ic{color:var(--accent)}
+  .nav-foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:10px;line-height:1.6}
+
+  /* 主区 */
+  .main{flex:1;display:flex;flex-direction:column;gap:18px;min-width:0}
+  .topbar{
+    display:flex;align-items:center;gap:16px;
+    background:var(--glass);backdrop-filter:blur(22px);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 22px;box-shadow:var(--shadow);
+  }
+  .hello h1{font-size:20px;font-weight:600;letter-spacing:.3px}
+  .hello p{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+  .spacer{flex:1}
+  .sync{
+    display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
+    background:var(--glass-strong);border:1px solid var(--line);
+    padding:7px 13px;border-radius:999px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .search{
+    display:flex;align-items:center;gap:9px;background:var(--glass-strong);
+    border:1px solid var(--line);border-radius:999px;padding:9px 16px;color:var(--ink-3);font-size:13px;width:230px;
+  }
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(140deg,#607cff,#9b6bff);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+
+  /* 概览卡 */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{
+    background:var(--glass);backdrop-filter:blur(22px);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  }
+  .card .tag{font-size:12px;color:var(--ink-3)}
+  .card .num{font-size:34px;font-weight:700;margin-top:8px;letter-spacing:.5px}
+  .card .sub{font-size:12px;color:var(--ink-2);margin-top:6px}
+  .card .glow{position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:var(--accent-soft);filter:blur(20px)}
+  .card.warn .glow{background:rgba(251,191,36,0.16)}
+
+  /* 待办区 */
+  .panel{
+    background:var(--glass);backdrop-filter:blur(22px);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px 24px;box-shadow:var(--shadow);flex:1;min-height:0;overflow:auto;
+  }
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .panel-head h2{font-size:16px;font-weight:600}
+  .pill{font-size:11.5px;color:var(--ink-2);background:var(--glass-strong);border:1px solid var(--line);padding:6px 12px;border-radius:999px}
+  .add{
+    background:linear-gradient(140deg,var(--accent),#22b07e);color:#06281d;
+    border:none;border-radius:12px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;
+    box-shadow:0 6px 18px rgba(52,211,153,0.3);
+  }
+  .todo{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:var(--glass-strong);border:1px solid var(--line);margin-bottom:11px;transition:.15s}
+  .todo:hover{transform:translateY(-2px);border-color:rgba(52,211,153,0.3)}
+  .check{width:22px;height:22px;border-radius:7px;border:2px solid var(--ink-3);flex:0 0 22px;display:flex;align-items:center;justify-content:center;font-size:13px;color:transparent}
+  .todo.done .check{background:var(--accent);border-color:var(--accent);color:#06281d}
+  .todo .body{flex:1;min-width:0}
+  .todo .title{font-size:14.5px}
+  .todo.done .title{color:var(--ink-3);text-decoration:line-through}
+  .todo .meta{font-size:12px;color:var(--ink-3);margin-top:3px}
+  .prio{font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600}
+  .prio.high{background:rgba(251,191,36,0.16);color:var(--warn)}
+  .prio.mid{background:rgba(96,124,255,0.16);color:#9bb0ff}
+  .prio.low{background:var(--glass-strong);color:var(--ink-2)}
+  .bar{height:6px;border-radius:99px;background:var(--glass-strong);overflow:hidden;margin-top:10px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#22b07e);border-radius:99px}
+</style>
+</head>
+<body>
+  <div class="app">
+    <!-- 左侧导航 -->
+    <aside class="nav">
+      <div class="brand">
+        <div class="logo">炉</div>
+        <div><b>糊涂蛋工作台</b><span>永久 · 三端同步</span></div>
+      </div>
+      <div class="nav-group">板块</div>
+      <div class="nav-item active"><span class="ic">✓</span> 工作</div>
+      <div class="nav-item"><span class="ic">📚</span> 学习</div>
+      <div class="nav-item"><span class="ic">🏠</span> 日常生活</div>
+      <div class="nav-group">其他</div>
+      <div class="nav-item"><span class="ic">⚙</span> 设置</div>
+      <div class="nav-foot">本地缓存 · 云端同步<br/>实时推送已开启</div>
+    </aside>
+
+    <!-- 主区 -->
+    <section class="main">
+      <div class="topbar">
+        <div class="hello">
+          <h1>晚上好，老板</h1>
+          <p>2026年8月23日 · 周日 · 三件事待处理</p>
+        </div>
+        <div class="spacer"></div>
+        <div class="sync"><span class="dot"></span> 已同步</div>
+        <div class="search">🔍 搜索待办 / 笔记 / 账本</div>
+        <div class="avatar">老</div>
+      </div>
+
+      <div class="cards">
+        <div class="card"><div class="glow"></div><div class="tag">今日待办</div><div class="num">3</div><div class="sub">2 项进行中 · 1 项逾期</div></div>
+        <div class="card"><div class="glow"></div><div class="tag">坚持中的习惯</div><div class="num">5/7</div><div class="sub">本周打卡率 71%</div></div>
+        <div class="card warn"><div class="glow"></div><div class="tag">本月支出</div><div class="num">¥2,480</div><div class="sub">较上月 ↓ 12%</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>工作 · 待办清单</h2>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="pill">全部 8</span>
+            <button class="add">+ 新建</button>
+          </div>
+        </div>
+
+        <div class="todo done">
+          <div class="check">✓</div>
+          <div class="body"><div class="title">回复供应商邮件</div><div class="meta">已完成 · 今天 14:20</div></div>
+          <span class="prio low">低</span>
+        </div>
+        <div class="todo">
+          <div class="check">✓</div>
+          <div class="body"><div class="title">整理 Q3 工作台需求文档</div><div class="meta">今天截止 · 进行中</div></div>
+          <span class="prio high">高</span>
+        </div>
+        <div class="todo">
+          <div class="check">✓</div>
+          <div class="body"><div class="title">和小仓库项目组对齐版本</div><div class="meta">明天 10:00 · 待开始</div></div>
+          <span class="prio mid">中</span>
+        </div>
+        <div class="todo">
+          <div class="check">✓</div>
+          <div class="body"><div class="title">审阅打边炉提交的设计稿</div><div class="meta">逾期 1 天 · 来自另一台手机</div></div>
+          <span class="prio high">高</span>
+        </div>
+
+        <div style="margin-top:22px">
+          <div style="font-size:13px;color:var(--ink-2);margin-bottom:8px">本周任务进度</div>
+          <div class="bar"><i style="width:64%"></i></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

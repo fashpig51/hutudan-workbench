@@ -1,0 +1,10 @@
+{
+  "name": "糊涂蛋工作台",
+  "short_name": "工作台",
+  "description": "工作 / 学习 / 日常生活 永久管理台",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": []
+}
