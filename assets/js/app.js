@@ -79,9 +79,9 @@ window.WB = window.WB || {};
     else if (key === 'life') WB.sections.life(content);
   }
 
-  async function start(pass) {
+  // 校验通过后真正进入（init 已在外部完成）
+  async function enterApp(pass, cloud) {
     E.setSync('wait', '连接中…');
-    const cloud = await WB.store.init(pass, WB.config);
     if (cloud) {
       E.setSync('on', '云端同步中');
       await WB.store.heartbeat();
@@ -98,14 +98,42 @@ window.WB = window.WB || {};
     const m = E.$('#passModal');
     m.style.display = 'flex';
     const input = E.$('#passInput');
+    const warn = E.$('#passWarn');
     input.focus();
+
     const submit = async () => {
       const v = input.value;
       if (!v) { E.toast('口令不能为空'); return; }
-      await start(v);
+      E.setSync('wait', '校验中…');
+      // 先用口令开柜子，再看柜子里有没有你的东西
+      const cloud = await WB.store.init(v, WB.config);
+      const has = await WB.store.hasAnyData();
+      if (has) {
+        // 有数据 → 口令对，直接进
+        warn.style.display = 'none';
+        enterApp(v, cloud);
+      } else {
+        // 空柜子 → 可能输错，弹提示不进（兜底按钮防锁死）
+        warn.style.display = 'block';
+      }
     };
+
     E.$('#passOk', m).onclick = submit;
     input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+
+    // 兜底：明知是空柜仍要进（防"全删+断网"被误锁门外）
+    E.$('#passForce', m).onclick = async () => {
+      const v = input.value;
+      const cloud = await WB.store.init(v, WB.config);
+      warn.style.display = 'none';
+      enterApp(v, cloud);
+    };
+    // 重新输入
+    E.$('#passRetry', m).onclick = () => {
+      warn.style.display = 'none';
+      input.value = '';
+      input.focus();
+    };
   }
 
   async function exportData() {

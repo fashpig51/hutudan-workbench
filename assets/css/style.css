@@ -130,6 +130,11 @@ body{
 .modal-box p{color:var(--muted);font-size:13px;margin-bottom:20px;line-height:1.6}
 .modal-box input{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--glass-bd);color:var(--text);padding:13px 16px;border-radius:12px;outline:none;font-size:15px;margin-bottom:16px;text-align:center}
 .modal-box button{width:100%;background:linear-gradient(135deg,var(--mint),var(--mint-d));border:none;color:#04201b;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;font-size:15px}
+/* 口令不符时的提示区（默认隐藏） */
+.pass-warn{margin-top:18px;border-top:1px dashed var(--glass-bd);padding-top:16px}
+.pass-warn-text{color:var(--danger);font-size:13px;margin:0 0 12px;line-height:1.5}
+.pass-warn #passForce{margin-bottom:10px}
+.pass-warn #passRetry{background:transparent;border:1px solid var(--glass-bd);color:var(--muted);font-weight:600}
 
 /* 提示条 */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(20,28,40,.95);border:1px solid var(--glass-bd);color:var(--text);padding:11px 20px;border-radius:12px;font-size:14px;z-index:99;box-shadow:var(--shadow)}

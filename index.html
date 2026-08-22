@@ -30,6 +30,11 @@
       <p>这是你自己的口令（不用注册账号）。<br>同一口令的设备共享同一份数据；忘了口令=数据解不开，请牢记。</p>
       <input id="passInput" type="password" placeholder="设一个只有你知的口令" autocomplete="off">
       <button id="passOk">进入工作台</button>
+      <div id="passWarn" class="pass-warn" style="display:none;">
+        <p class="pass-warn-text">这个口令对应的工作台是空的，可能输错了口令。</p>
+        <button id="passForce" class="btn-primary">仍要进入（清空后重开）</button>
+        <button id="passRetry" class="btn-ghost">重新输入</button>
+      </div>
     </div>
   </div>
 

@@ -161,5 +161,30 @@ WB.store = (function () {
 
   function getPassphrase() { return passphrase; }
 
-  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat };
+  // 判断这个口令对应的保险柜里有没有任何数据（本地缓存优先，再查云端）
+  // 用来拦住"输错口令开空柜"——你的真保险柜里有东西，空的肯定是输错了
+  async function hasAnyData() {
+    const tables = ['todos', 'notes', 'books', 'habits'];
+    // 1) 本地缓存有 → 秒回（你平时直接进，不卡）
+    for (const t of tables) {
+      if (loadCache(t).length > 0) return true;
+    }
+    // 2) 本地空才查云端（新设备/清缓存场景）
+    if (sb) {
+      for (const t of tables) {
+        try {
+          const { data, error } = await sb
+            .from(t)
+            .select('id')
+            .eq('workspace_id', workspaceId)
+            .is('is_deleted', false)
+            .limit(1);
+          if (!error && data && data.length > 0) return true;
+        } catch (e) { /* 断网等，忽略，继续查别的表 */ }
+      }
+    }
+    return false;
+  }
+
+  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData };
 })();
