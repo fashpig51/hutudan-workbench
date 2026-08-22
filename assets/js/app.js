@@ -203,3 +203,10 @@ window.WB = window.WB || {};
 
   document.addEventListener('DOMContentLoaded', showPassModal);
 })();
+
+// 装上"刷新管家"(sw.js)：让每次刷新都先去网上拿最新版本，断网才用存的旧版
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
