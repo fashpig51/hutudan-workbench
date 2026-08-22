@@ -1,10 +1,15 @@
 {
   "name": "糊涂蛋工作台",
-  "short_name": "工作台",
+  "short_name": "糊涂蛋工作台",
   "description": "工作 / 学习 / 日常生活 永久管理台",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
-  "icons": []
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
 }
