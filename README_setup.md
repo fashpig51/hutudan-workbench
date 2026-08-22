@@ -35,23 +35,15 @@
 - 同一口令 = 同一份数据；不同口令 = 互相看不到（这就是隐私保护）。
 - ⚠️ 口令忘了 = 数据解不开，请牢记。
 
-## 第 5 步：部署到腾讯云 COS（国内可访问，推荐）
-> ⚠️ 坑：Cloudflare / GitHub Pages 等**境外域名在中国大陆常被墙**，手机用流量打不开。故改用腾讯云对象存储（COS）静态网站托管，腾讯自家域名国内畅通。
-1. 打开 https://console.cloud.tencent.com/cos ，登录你的腾讯云账号。
-2. 首次需点「开通服务」（免费）。
-3. 左侧「存储桶列表」→ **创建存储桶**：
-   - 名称：`hutudan-workbench`（自定义，全小写、数字、中划线）
-   - 地域：选离你近的（如广州 `ap-guangzhou`）
-   - 访问权限：**公有读私有写**
-   - 其他默认，点确定。
-4. 进入存储桶 → 左侧「文件列表」→ **上传** → 把电脑里 `D:\EDG\software\Workbench` 文件夹内**所有文件 + `assets` 子文件夹**拖进去（保持 `index.html` 与 `assets` 同层）。
-5. 左侧「基础配置」→ **静态网站** → 开启：
-   - 索引文档：`index.html`
-   - 错误文档：`index.html`（可选）
-   - 保存。
-6. 记下页面上的「**静态网站域名**」（形如 `https://hutudan-workbench-xxxx.cos-website.ap-guangzhou.myqcloud.com`）——这就是手机/iPad/电脑的访问地址。
-7. 各端浏览器打开该域名 → 输入**与本地相同的口令** → 三端同步。
-- 费用：按流量计费，个人用每月通常几毛到一块，**非体验版、不会到期**。
+## 第 5 步：部署到 GitHub Pages（已上线，大陆可访问）
+> 说明：本项目最终用 GitHub Pages 上线（免费、免备案，大陆实测可打开）。早期试过腾讯云 COS（默认域名被强制下载、网页打不开）和 Cloudflare Pages（国内超时），都已弃用。Supabase 钥匙和保活任务都已配好，正常情况下不必重配。
+1. 把 `D:\EDG\software\Workbench` 整个文件夹推到 GitHub 仓库（公开仓库 `fashpig51/hutudan-workbench`）。
+2. 仓库里已带 `.nojekyll`，防止 GitHub 误处理文件。
+3. 仓库 **Settings → Pages**：Source 选 `main` 分支、文件夹选根目录（`/root`），保存。
+4. 等几分钟构建完，访问 **https://fashpig51.github.io/hutudan-workbench/** 就是线上地址。
+5. 各端（电脑 / 手机 / iPad）浏览器打开该地址 → 输入**同一个口令** → 三端自动同步。
+- 改完代码：在 `D:\EDG\software\Workbench` 里 `git add -A && git commit && git push`，GitHub Pages 自动重建（几分钟生效）。
+- 保活任务要用的 Supabase 钥匙已作为仓库密钥配好，无需再动。
 
 ## 第 6 步：开启保活（防 7 天暂停）
 按 `scripts/keepalive/README.md` 把定时任务配上，之后零维护。
