@@ -1,0 +1,19 @@
+# 防「7天不用自动暂停」保活任务
+# 作用：每 3 天自动去戳一下你的 Supabase 数据库，让它永不休眠。
+# 部署方法见同目录 README.md（需你建一个 GitHub 私有仓库，添加两个 secret）。
+name: workbench-keepalive
+on:
+  schedule:
+    - cron: '0 4 */3 * *'   # 每 3 天 UTC 04:00 跑一次
+  workflow_dispatch:        # 也可在 GitHub 上手动点一下立即运行
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (保持活跃)
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/todos?select=count" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON }}")
+          echo "supabase ping http code: $code"
