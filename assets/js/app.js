@@ -229,7 +229,18 @@ window.WB = window.WB || {};
     }
   }
 
-  document.addEventListener('DOMContentLoaded', showPassModal);
+  function hideSplash() {
+    const s = document.getElementById('splash');
+    if (!s) return;
+    s.classList.add('hidden');
+    setTimeout(() => { try { s.remove(); } catch (e) {} }, 650);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // 启动图至少显示 0.4 秒，让过渡自然；最多 3 秒兜底
+    setTimeout(() => { hideSplash(); showPassModal(); }, 400);
+    setTimeout(hideSplash, 3000);
+  });
 })();
 
 // 装上"刷新管家"(sw.js)：让每次刷新都先去网上拿最新版本，断网才用存的旧版
