@@ -93,6 +93,29 @@ WB.store = (function () {
     return full;
   }
 
+  // 原始上传：字段已经是加密后的密文，不再二次加密（用于自动备份文件恢复）
+  async function upsertRaw(table, row) {
+    const now = new Date().toISOString();
+    const full = Object.assign({}, row, {
+      workspace_id: workspaceId,
+      updated_at: now
+    });
+    if (!full.id) full.id = (crypto.randomUUID ? crypto.randomUUID() : 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+    if (!full.created_at) full.created_at = now;
+    if (full.is_deleted == null) full.is_deleted = false;
+
+    let cache = loadCache(table);
+    const i = cache.findIndex(r => r.id === full.id);
+    if (i >= 0) cache[i] = full; else cache.push(full);
+    saveCache(table, cache);
+
+    if (sb) {
+      const { error } = await sb.from(table).upsert(full);
+      if (error) console.warn('云端写入失败:', error.message);
+    }
+    return full;
+  }
+
   // 删除：软删（is_deleted=true），不真删，方便以后恢复
   async function remove(table, id) {
     const now = new Date().toISOString();
@@ -138,5 +161,5 @@ WB.store = (function () {
 
   function getPassphrase() { return passphrase; }
 
-  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, remove, subscribe, heartbeat };
+  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat };
 })();
