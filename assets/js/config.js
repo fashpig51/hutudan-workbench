@@ -9,5 +9,7 @@ window.WB = window.WB || {};
 WB.config = {
   supabaseUrl: 'https://ktdlawiitofkhgklhyrz.supabase.co',
   supabaseAnonKey: 'sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW',
-  appVersion: 'V1.0.0'
+  appVersion: 'V1.0.11'
+  // 版本号规则：版本号 = «1.⌊提交数÷100⌋.提交数%100»，随 git 提交数递增。
+  // 例：11 个提交→V1.0.11；100 个→V1.1.0；156 个→V1.2.0。每次有实质改动提交后须同步此值。
 };
