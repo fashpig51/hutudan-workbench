@@ -37,7 +37,7 @@
   --radius-sm:    12px;
   --radius-lg:    28px;
   --sidebar-w:    76px;
-  --topbar-h:     40px;
+  --topbar-h:     68px;
 }
 :root[data-theme="dark"] {
   --bg:           #0F1A14;
@@ -61,7 +61,7 @@
   --radius-sm:    12px;
   --radius-lg:    28px;
   --sidebar-w:    76px;
-  --topbar-h:     40px;
+  --topbar-h:     68px;
 }
 /* 深色模式：亮底元素（主按钮/激活标签/激活文件夹/计时模式/顶栏激活）统一深黑字，保证对比清晰 */
 :root[data-theme="dark"] .btn-primary,
@@ -104,34 +104,34 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid transparent;
 }
 .brand { display:flex; align-items:center; gap:12px; font-weight:700; font-size:22px; letter-spacing:-0.02em; }
-.brand-mark { width:30px; height:30px; display:grid; place-items:center; background:var(--ink); color:var(--yellow); border-radius:9px; }
-.brand-mark svg { width:18px; height:18px; }
-.brand-stack { display:flex; flex-direction:column; gap:1px; line-height:1.1; }
-.brand-main { font-size:18px; font-weight:800; letter-spacing:-0.02em; }
-.brand-sub  { font-size:11px; color:var(--ink-muted); font-weight:500; }
-.home-brand { margin-bottom: 4px; }
+.brand-mark { width:36px; height:36px; display:grid; place-items:center; background:var(--ink); color:var(--yellow); border-radius:10px; }
+.brand-mark svg { width:22px; height:22px; }
+.brand-stack { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
+.brand-main { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
+.brand-sub  { font-size:13px; color:var(--ink-muted); font-weight:500; }
+.home-brand { margin-bottom: 14px; }
 
 .topbar-right { display:flex; align-items:center; gap:8px; }
 .topbar-btn {
-  width:32px; height:32px; border-radius:10px;
+  width:42px; height:42px; border-radius:12px;
   display:grid; place-items:center;
   background: var(--card);
   color: var(--ink);
   transition: background 0.15s;
 }
 .topbar-btn:hover { background: var(--card-2); }
-.topbar-btn svg { width:16px; height:16px; }
+.topbar-btn svg { width:18px; height:18px; }
 .topbar-btn.is-on { background: var(--yellow); }
 .topbar-btn.is-on svg { stroke-width: 2.4; }
 
 .sync-pill {
-  display:flex; align-items:center; gap:5px;
-  padding:0 10px; height:32px; border-radius:10px;
+  display:flex; align-items:center; gap:6px;
+  padding:0 12px; height:42px; border-radius:12px;
   background: var(--card); color: var(--ink-soft);
-  font-size:12px; font-weight:500;
+  font-size:13px; font-weight:500;
   white-space: nowrap;
 }
-.sync-dot { width:6px; height:6px; border-radius:50%; background: var(--good); }
+.sync-dot { width:8px; height:8px; border-radius:50%; background: var(--good); }
 .sync-pill.is-syncing .sync-dot { background: var(--yellow); animation: pulse 1.2s ease-in-out infinite; }
 .sync-pill.is-offline .sync-dot { background: var(--ink-muted); }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
@@ -329,9 +329,10 @@ a { color: inherit; text-decoration: none; }
 .folder-item.is-active { background: var(--ink); color: var(--yellow); }
 .folder-item.is-active .folder-count { color: var(--yellow); opacity: 0.7; }
 .folder-item .folder-icon { width: 18px; height: 18px; }
-.folder-item .folder-name { line-height: 1.2; }
+.folder-item .folder-name { line-height: 1.2; display: inline-flex; align-items: center; }
 .folder-item .folder-count { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
-.folder-rename { margin-left: 4px; width: 18px; height: 18px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink-muted); background: transparent; font-size: 16px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
+.folder-rename { margin-left: 4px; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink-muted); background: transparent; border: 0; padding: 0; flex-shrink: 0; transition: color 0.15s, background 0.15s; cursor: pointer; }
+.folder-rename svg { width: 16px; height: 16px; }
 .folder-rename:hover { background: var(--card-2); color: var(--ink); }
 .folder-add { display:flex; gap: 6px; margin-top: 12px; }
 .folder-add input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
@@ -509,7 +510,7 @@ a { color: inherit; text-decoration: none; }
 .login-card input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--card-2); font-size: 15px; margin-bottom: 12px; }
 .login-pass-wrap { position: relative; margin-bottom: 12px; }
 .login-pass-wrap input { width: 100%; padding: 14px 48px 14px 16px; margin-bottom: 0; }
-.login-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: var(--ink-muted); background: transparent; }
+.login-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: var(--ink-muted); background: transparent; border: 0; padding: 0; -webkit-appearance: none; appearance: none; cursor: pointer; }
 .login-eye:hover { background: var(--card); color: var(--ink); }
 .login-eye svg { width: 18px; height: 18px; }
 .login-hint { font-size: 12px; color: var(--ink-muted); margin-top: 12px; line-height: 1.5; }
@@ -539,7 +540,7 @@ a { color: inherit; text-decoration: none; }
   .btn-folders { display: inline-flex; }
 }
 @media (max-width: 760px) {
-  :root { --sidebar-w: 64px; }
+  :root { --sidebar-w: 64px; --topbar-h: 50px; }
   .main { padding: 20px 16px 96px; }
   .home-hero { grid-template-columns: 1fr; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
@@ -976,7 +977,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.8";
+const APP_VERSION = "V1.0.9";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1637,7 +1638,7 @@ function renderFolders() {
     <div class="folder-item ${state.filter.noteFolder===f.id?'is-active':''}" data-fold="${f.id}">
       <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
       <span class="folder-name">${escHtml(f.name)}</span>
-      ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名">›</button>` : `` }
+      ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></button>` : `` }
       <span class="folder-count">${counts[f.id]||0}</span>
     </div>
   `).join("") + `
