@@ -363,6 +363,9 @@ a { color: inherit; text-decoration: none; }
 .note-editor-head .icon-btn:hover { background: var(--card-2); color: var(--ink); }
 .note-editor-head .icon-btn svg { width: 15px; height: 15px; }
 .note-editor-head .icon-btn.is-on { color: var(--orange); }
+.btn-fullscreen { display: none; }
+.note-fullscreen-exit { display: none; position: absolute; top: 8px; right: 8px; z-index: 10; width: 36px; height: 36px; border-radius: 10px; background: var(--card); color: var(--ink-muted); border: 1px solid var(--line); place-items: center; }
+.note-fullscreen-exit svg { width: 18px; height: 18px; }
 .note-folder-move { display:inline-flex; align-items:center; gap:4px; }
 .note-folder-select { font-size: 11px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; max-width: 120px; }
 .note-editor-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
@@ -543,7 +546,7 @@ a { color: inherit; text-decoration: none; }
 }
 @media (max-width: 760px) {
   :root { --sidebar-w: 64px; --topbar-h: 50px; }
-  .main { padding: 12px 16px 96px; }
+  .main { padding: 6px 16px 96px; }
   .home-hero { grid-template-columns: 1fr; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .stat-num { font-size: 40px; }
@@ -587,6 +590,11 @@ a { color: inherit; text-decoration: none; }
   .note-folder-move { font-size: 13px; }
   /* 手机端首页只藏"待办事项""今日专注"两张卡，电脑端保留 */
   .home-hero .stat-card { display: none; }
+  /* 手机端笔记全屏(B方案)：藏顶栏那行 + 显示悬浮退出X */
+  .btn-fullscreen { display: grid; }
+  .notes-layout.show-fullscreen .note-editor-head { display: none; }
+  .notes-layout.show-fullscreen .note-editor { position: relative; }
+  .notes-layout.show-fullscreen .note-fullscreen-exit { display: grid; }
 }
 
 /* ---------- small things ---------- */
@@ -787,7 +795,9 @@ a { color: inherit; text-decoration: none; }
               <button class="icon-btn" id="btnLockNote" title="加密"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
               <button class="icon-btn" id="btnExportNote" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>
               <button class="icon-btn" id="btnDelNote" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+              <button class="icon-btn btn-fullscreen" id="btnNoteFullscreen" title="全屏查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             </div>
+            <button class="note-fullscreen-exit" id="btnNoteExitFullscreen" title="退出全屏"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
             <div class="note-editor-body">
               <textarea id="noteContent" placeholder="写点什么... 支持 Markdown ： # 标题、- 列表、**粗**、`code`、&gt;引用"></textarea>
               <div class="preview" id="notePreview"></div>
@@ -982,7 +992,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.13";
+const APP_VERSION = "V1.0.14";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1286,7 +1296,7 @@ async function syncLoad() {
 /* ---------------------- 路由 ---------------------- */
 function go(tab, opts) {
   if (tab !== "notes" && state.select.noteId === "__new__") state.select.noteId = null;
-  else if (tab === "notes") { const nl = $("#notesLayout"); if (nl) { nl.classList.remove("show-editor"); nl.classList.remove("show-folders"); } }
+  else if (tab === "notes") { const nl = $("#notesLayout"); if (nl) { nl.classList.remove("show-editor"); nl.classList.remove("show-folders"); nl.classList.remove("show-fullscreen"); } }
   state.filter.tab = tab;
   $$(".view").forEach(v => v.classList.toggle("is-active", v.id === "view-" + tab));
   $$(".nav-btn").forEach(b => b.classList.toggle("is-active", b.dataset.go === tab));
@@ -1808,9 +1818,18 @@ $("#btnPinNote").onclick = () => {
 $("#btnNoteBack").onclick = () => {
   state.select.noteId = null;
   const layout = $("#notesLayout");
-  if (layout) layout.classList.remove("show-editor");
+  if (layout) { layout.classList.remove("show-editor"); layout.classList.remove("show-fullscreen"); }
   renderNoteEditor();
   renderNotes();
+};
+// 手机端笔记全屏 B 方案
+$("#btnNoteFullscreen").onclick = () => {
+  const nl = $("#notesLayout"); if (!nl) return;
+  nl.classList.add("show-fullscreen");
+};
+$("#btnNoteExitFullscreen").onclick = () => {
+  const nl = $("#notesLayout"); if (!nl) return;
+  nl.classList.remove("show-fullscreen");
 };
 $("#btnLockNote").onclick = () => {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
