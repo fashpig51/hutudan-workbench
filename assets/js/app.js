@@ -126,22 +126,26 @@ window.WB = window.WB || {};
       switchTo(btn.dataset.key);
     });
 
-    // 顶栏
+    // 顶栏：左标题 + 中间居中搜索 + 右日期/铃铛/账户（对齐参考页布局）
     const tb = E.$('#topbar');
     const d = new Date();
-    const greet = d.getHours() < 6 ? '夜深了' : d.getHours() < 12 ? '早上好' : d.getHours() < 18 ? '下午好' : '晚上好';
+    const wk = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+    const dateStr = `${wk} ${String(d.getMonth() + 1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
     tb.innerHTML = `
-      <div class="greet">${greet}，老板</div>
-      <div class="date">${d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</div>
+      <div class="brand tb-brand">糊涂蛋<span>工作台</span></div>
+      <div class="top-search">
+        <i class="search-ico">🔍</i>
+        <input id="search" placeholder="搜索任务、笔记、便签">
+      </div>
       <div class="top-actions">
-        <input id="nlInput" placeholder="自然语言输入，如“明天下午5点交报告”“每周五跑步”" maxlength="200">
-        <button id="nlBtn" class="btn-ghost">执行</button>
-        <input id="search" placeholder="搜索（本设备）">
-        <button id="themeBtn" class="btn-ghost" title="切换明暗主题">🌙</button>
-        <button id="exportBtn" class="btn-ghost" title="导出加密备份文件">📤 备份</button>
-        <button id="importBtn" class="btn-ghost" title="从备份文件恢复数据">📥 恢复</button>
+        <span class="tb-date">${dateStr}</span>
+        <button id="bellBtn" class="icon-btn" title="提醒">🔔</button>
+        <button id="themeBtn" class="icon-btn" title="切换明暗主题">🌙</button>
+        <button id="exportBtn" class="icon-btn" title="导出加密备份">📤</button>
+        <button id="importBtn" class="icon-btn" title="恢复备份">📥</button>
         <input id="importFile" type="file" accept="application/json,.json,.txt" style="display:none">
-        <button id="lockBtn" class="btn-ghost" title="退出当前口令">锁</button>
+        <button id="lockBtn" class="icon-btn" title="锁屏">🔒</button>
+        <span class="tb-account"><span class="tb-avatar">👤</span>账户 ▾</span>
       </div>`;
     E.$('#lockBtn', tb).addEventListener('click', () => location.reload());
     E.$('#exportBtn', tb).addEventListener('click', exportData);
@@ -155,13 +159,11 @@ window.WB = window.WB || {};
       });
     });
     E.$('#themeBtn', tb).addEventListener('click', () => {
-      document.body.classList.toggle('light');
-      localStorage.setItem('wb_theme', document.body.classList.contains('light') ? 'light' : 'dark');
-      E.toast('主题已切换');
+      const light = document.body.classList.toggle('light');
+      localStorage.setItem('wb_theme', light ? 'light' : 'dark');
+      E.toast(light ? '已切到浅色' : '已切到深色');
     });
     if (localStorage.getItem('wb_theme') === 'light') document.body.classList.add('light');
-    E.$('#nlBtn', tb).addEventListener('click', () => doNaturalLanguage(E.$('#nlInput', tb).value));
-    E.$('#nlInput', tb).addEventListener('keydown', (e) => { if (e.key === 'Enter') doNaturalLanguage(e.target.value); });
   }
 
   function switchTo(key) {
@@ -304,14 +306,33 @@ window.WB = window.WB || {};
     const E = WB.ui;
     root.innerHTML = `
       <div class="section-head"><h2>今日总览</h2></div>
-      <div class="dash-grid">
-        <div class="dash-card" id="dash-todos"><h3>📋 今日待办</h3><div class="dash-body"></div></div>
-        <div class="dash-card" id="dash-habits"><h3>🌱 习惯打卡</h3><div class="dash-body"></div></div>
-        <div class="dash-card" id="dash-notes"><h3>📝 今日笔记</h3><div class="dash-body"></div></div>
-        <div class="dash-card" id="dash-focus"><h3>⏱️ 本周专注</h3><div class="dash-body"></div></div>
+      <div class="stat-row4">
+        <div class="stat-card"><div class="stat-ico">📋</div><div><div class="stat-num" id="stat-todo">0</div><div class="stat-lbl">今日待办</div></div></div>
+        <div class="stat-card"><div class="stat-ico">⚡</div><div><div class="stat-num" id="stat-doing">0</div><div class="stat-lbl">进行中</div></div></div>
+        <div class="stat-card"><div class="stat-ico">✅</div><div><div class="stat-num" id="stat-done">0</div><div class="stat-lbl">已完成</div></div></div>
+        <div class="stat-card"><div class="stat-ico">⏱️</div><div><div class="stat-num" id="stat-focus">0</div><div class="stat-lbl">专注(分)</div></div></div>
       </div>
 
-      <div class="section-head" style="margin-top:20px"><h2>目标管理</h2></div>
+      <div class="dash-cols">
+        <div class="dash-main">
+          <div class="dash-card">
+            <div class="dash-card-head"><h3>今日任务</h3><span class="muted-sm">临近/逾期置顶</span></div>
+            <div id="dash-today" class="dash-body"></div>
+          </div>
+        </div>
+        <div class="dash-side">
+          <div class="dash-card">
+            <div class="dash-card-head"><h3>时间规划</h3></div>
+            <div id="dash-plan" class="dash-body"></div>
+          </div>
+          <div class="dash-card">
+            <div class="dash-card-head"><h3>近期到期提醒</h3></div>
+            <div id="dash-due" class="dash-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:22px"><h2>目标管理</h2></div>
       <div class="dash-card" id="dash-goals"><div class="dash-body"></div></div>
       <div class="add-row" id="goal-form">
         <input id="g-title" placeholder="目标名称" maxlength="120">
@@ -359,21 +380,54 @@ window.WB = window.WB || {};
         const logs = await WB.store.list('time_logs', ['note']);
 
         // 今日总览
-        const todayTodos = todos.filter(r => r.kind === 'task' && !r.parent_id && r.due_date === today && !isDoneR(r));
-        const b1 = E.$('#dash-todos .dash-body', root);
-        if (b1) b1.innerHTML = todayTodos.length ? todayTodos.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)} ${r.due_time ? '(' + r.due_time + ')' : ''}</div>`).join('') : '<div class="dash-row muted">今天没有到期待办</div>';
+        const todayTodosAll = todos.filter(r => r.kind === 'task' && !r.parent_id);
+        const focusTotal = todayTodosAll.reduce((s, r) => s + (parseInt(r.focus_minutes) || 0), 0);
+        const stTodo = E.$('#stat-todo', root), stDoing = E.$('#stat-doing', root), stDone = E.$('#stat-done', root), stFocus = E.$('#stat-focus', root);
+        if (stTodo) stTodo.textContent = todayTodosAll.filter(r => !isDoneR(r) && r.due_date === today).length;
+        if (stDoing) stDoing.textContent = todayTodosAll.filter(r => !isDoneR(r) && r.kanban_status === 'doing').length;
+        if (stDone) stDone.textContent = todayTodosAll.filter(r => isDoneR(r)).length;
+        if (stFocus) stFocus.textContent = focusTotal;
 
-        const todayCheckins = habits.filter(r => r.last_checkin === today);
-        const b2 = E.$('#dash-habits .dash-body', root);
-        if (b2) b2.innerHTML = habits.length ? `<div class="dash-row">${todayCheckins.length}/${habits.length} 已打卡</div>` + habits.map(r => `<div class="dash-row">${r.last_checkin === today ? '✅' : '⬜'} ${E.escapeHtml(r.name)}</div>`).join('') : '<div class="dash-row muted">还没有习惯</div>';
+        // 今日任务（临近/逾期置顶，逾期标红）
+        const b1 = E.$('#dash-today', root);
+        const todayTasks = todayTodosAll.filter(r => !isDoneR(r));
+        const sorted = todayTasks.slice().sort((a, b) => {
+          const da = a.due_date || '9999', db = b.due_date || '9999';
+          return da < db ? -1 : da > db ? 1 : 0;
+        });
+        if (b1) {
+          if (!sorted.length) b1.innerHTML = '<div class="dash-row muted">今天没有待办，享受一下 🎉</div>';
+          else b1.innerHTML = sorted.map(r => {
+            const overdue = r.due_date && r.due_date < today;
+            const soon = r.due_date === today;
+            const cls = overdue ? 'dash-task overdue' : soon ? 'dash-task soon' : 'dash-task';
+            return `<div class="${cls}"><span class="dt-check" data-dtid="${r.id}">${isDoneR(r) ? '✓' : ''}</span><span class="dt-title">${E.escapeHtml(r.title)}</span>${r.due_time ? `<span class="dt-time">${r.due_time}</span>` : ''}${overdue ? '<span class="dt-flag">逾期</span>' : soon ? '<span class="dt-flag soon">今天</span>' : ''}</div>`;
+          }).join('');
+        }
 
-        const todayNotes = notes.filter(r => r.daily_date === today || (r.created_at || '').slice(0, 10) === today);
-        const b3 = E.$('#dash-notes .dash-body', root);
-        if (b3) b3.innerHTML = todayNotes.length ? todayNotes.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)}</div>`).join('') : '<div class="dash-row muted">今天还没写笔记</div>';
+        // 时间规划（今日有排程的任务）
+        const b2 = E.$('#dash-plan', root);
+        const planTasks = todayTodosAll.filter(r => r.scheduled_date === today && r.scheduled_start && !isDoneR(r)).sort((a, b) => (a.scheduled_start || '').localeCompare(b.scheduled_start || ''));
+        if (b2) {
+          if (!planTasks.length) b2.innerHTML = '<div class="dash-row muted">今天还没排时间块</div>';
+          else b2.innerHTML = planTasks.map(r => `<div class="dash-row">🕒 ${r.scheduled_start}${r.scheduled_end ? '-' + r.scheduled_end : ''} · ${E.escapeHtml(r.title)}</div>`).join('');
+        }
 
-        const focusTotal = todos.reduce((s, r) => s + (parseInt(r.focus_minutes) || 0), 0);
-        const b4 = E.$('#dash-focus .dash-body', root);
-        if (b4) b4.innerHTML = `<div class="dash-row">累计 ${focusTotal} 分钟</div>`;
+        // 近期到期提醒（未来7天内 + 已逾期）
+        const b3 = E.$('#dash-due', root);
+        const dueTasks = todayTodosAll.filter(r => !isDoneR(r) && r.due_date).map(r => {
+          let diff = 0; try { diff = Math.round((new Date(r.due_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000); } catch (e) {}
+          return Object.assign({}, r, { _diff: diff });
+        }).filter(r => r._diff <= 7);
+        dueTasks.sort((a, b) => a._diff - b._diff);
+        if (b3) {
+          if (!dueTasks.length) b3.innerHTML = '<div class="dash-row muted">未来一周没有到期事项</div>';
+          else b3.innerHTML = dueTasks.map(r => {
+            const txt = r._diff < 0 ? `逾期${-r._diff}天` : r._diff === 0 ? '今天' : `${r._diff}天后`;
+            const cls = r._diff < 0 ? 'due-row overdue' : r._diff === 0 ? 'due-row soon' : 'due-row';
+            return `<div class="${cls}"><span class="due-ico">📌</span><span class="due-title">${E.escapeHtml(r.title)}</span><span class="due-when">${txt}</span></div>`;
+          }).join('');
+        }
 
         // 目标管理
         const gEl = E.$('#dash-goals .dash-body', root);
@@ -479,6 +533,13 @@ window.WB = window.WB || {};
 
     // 通用点击：目标进度+1 / 完成 / 删除 / 时间日志删除 / 日历切换
     root.addEventListener('click', async (e) => {
+      if (e.target.matches('.dt-check')) {
+        const id = e.target.dataset.dtid;
+        const rows = await WB.store.list('todos', ['title', 'note']);
+        const r = rows.find(x => x.id === id); if (!r) return;
+        await WB.store.upsert('todos', ['title', 'note'], Object.assign({}, r, { kanban_status: 'done', status: 'done' }));
+        render();
+      }
       if (e.target.matches('#fc-prev')) { curCal.m--; if (curCal.m < 0) { curCal.m = 11; curCal.y--; } const data = await gatherData(); renderFusionCal(data.todos, data.habits, data.notes); return; }
       if (e.target.matches('#fc-next')) { curCal.m++; if (curCal.m > 11) { curCal.m = 0; curCal.y++; } const data = await gatherData(); renderFusionCal(data.todos, data.habits, data.notes); return; }
       if (e.target.matches('[data-gk]')) {

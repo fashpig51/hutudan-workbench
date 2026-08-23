@@ -5,6 +5,93 @@
 window.WB = window.WB || {};
 WB.sections = WB.sections || {};
 
+// ============================================================
+// 全局标签管理（工作/学习共用）：从表里收集标签，支持新建/改名/删除
+// 标签以逗号分隔存在每行 tags 字段；删除=从所有行移除该标签，改名=批量替换。
+// ============================================================
+WB.tagMgr = WB.tagMgr || {};
+WB.tagMgr.collect = async function (table, cols) {
+  const rows = await WB.store.list(table, cols);
+  const set = new Set();
+  rows.forEach(r => (r.tags || '').split(',').map(s => s.trim()).filter(Boolean).forEach(t => set.add(t)));
+  return [...set].sort();
+};
+WB.tagMgr.renameInRows = async function (table, cols, oldT, newT) {
+  const rows = await WB.store.list(table, cols);
+  for (const r of rows) {
+    const parts = (r.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!parts.includes(oldT) && !parts.includes(newT)) continue;
+    const next = parts.map(t => t === oldT ? newT : t).filter((t, i, a) => t && a.indexOf(t) === i);
+    await WB.store.upsert(table, cols, Object.assign({}, r, { tags: next.join(',') }));
+  }
+};
+WB.tagMgr.removeFromRows = async function (table, cols, tag) {
+  const rows = await WB.store.list(table, cols);
+  for (const r of rows) {
+    const parts = (r.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!parts.includes(tag)) continue;
+    await WB.store.upsert(table, cols, Object.assign({}, r, { tags: parts.filter(t => t !== tag).join(',') }));
+  }
+};
+// 打开标签管理弹窗；onChange 在改动后回调（用于刷新列表/候选）
+WB.tagMgr.open = function (table, cols, onChange) {
+  const E = WB.ui;
+  const mask = E.el(`<div class="modal-mask"><div class="modal-box tag-mgr">
+    <h2>管理标签</h2>
+    <p>新建标签 · 改名 · 删除（删除会从所有记录里移除该标签）</p>
+    <div class="tag-mgr-add">
+      <input id="tmNew" placeholder="输入新标签名，回车添加">
+      <button id="tmAdd" class="btn-primary">添加</button>
+    </div>
+    <div id="tmList" class="tag-mgr-list"></div>
+    <button id="tmClose" class="tm-close">关闭</button>
+  </div></div>`);
+  document.body.appendChild(mask);
+  async function refresh() {
+    const tags = await WB.tagMgr.collect(table, cols);
+    const list = mask.querySelector('#tmList');
+    list.innerHTML = tags.length ? tags.map(t => `<div class="tm-row">
+      <input class="tm-name" data-old="${E.escapeHtml(t)}" value="${E.escapeHtml(t)}">
+      <button class="tm-save" data-old="${E.escapeHtml(t)}">改名</button>
+      <button class="tm-del" data-old="${E.escapeHtml(t)}">删除</button>
+    </div>`).join('') : '<div class="empty">还没有标签</div>';
+  }
+  mask.querySelector('#tmAdd').addEventListener('click', async () => {
+    const inp = mask.querySelector('#tmNew'); const v = inp.value.trim();
+    if (!v) return;
+    const tags = await WB.tagMgr.collect(table, cols);
+    if (tags.includes(v)) { E.toast('标签已存在'); return; }
+    // 添加：挂到一张占位逻辑——这里仅登记到现有行不方便，改为允许在新建任务时选用；同时写入一张空标记行不可行，故以“候选”形式存在。
+    // 简化：把新标签写进最近一条记录（若无记录则提示先建一条）。
+    const rows = await WB.store.list(table, cols);
+    if (!rows.length) { E.toast('先建一条记录，再管理标签'); return; }
+    const r = rows[0];
+    const parts = (r.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+    parts.push(v);
+    await WB.store.upsert(table, cols, Object.assign({}, r, { tags: parts.join(',') }));
+    inp.value = ''; await refresh(); if (onChange) onChange();
+  });
+  mask.querySelector('#tmList').addEventListener('click', async (e) => {
+    const old = e.target.dataset.old; if (!old) return;
+    if (e.target.matches('.tm-save')) {
+      const inp = mask.querySelector(`.tm-name[data-old="${CSS.escape(old)}"]`);
+      const nv = inp.value.trim();
+      if (!nv || nv === old) return;
+      const tags = await WB.tagMgr.collect(table, cols);
+      if (tags.includes(nv)) { E.toast('标签名已存在'); return; }
+      await WB.tagMgr.renameInRows(table, cols, old, nv);
+      await refresh(); if (onChange) onChange();
+    } else if (e.target.matches('.tm-del')) {
+      if (!confirm(`确定删除标签「${old}」？会从所有记录里移除它。`)) return;
+      await WB.tagMgr.removeFromRows(table, cols, old);
+      await refresh(); if (onChange) onChange();
+    }
+  });
+  mask.querySelector('#tmClose').addEventListener('click', () => mask.remove());
+  mask.addEventListener('click', (e) => { if (e.target === mask) mask.remove(); });
+  refresh();
+};
+
 // ---------- 工作：待办 + 日历 + 看板 + 排程 + 小结 ----------
 WB.sections.work = function (root) {
   const E = WB.ui;
@@ -19,7 +106,8 @@ WB.sections.work = function (root) {
       </select>
       <input id="w-due" type="date">
       <input id="w-duetime" type="time" title="截止时间">
-      <input id="w-tags" placeholder="标签，逗号隔开" maxlength="80">
+      <input id="w-tags" placeholder="标签，逗号隔开" maxlength="80" list="w-tagList">
+      <datalist id="w-tagList"></datalist>
       <select id="w-kind">
         <option value="task">任务</option>
         <option value="event">纪念日</option>
@@ -34,6 +122,7 @@ WB.sections.work = function (root) {
         <button class="chip" data-f="done">已完成</button>
         <button class="chip" data-f="hot">本周高优</button>
         <span id="w-tagChips" class="tag-chips"></span>
+        <button id="w-tagMgr" class="chip" title="新建/改名/删除标签">⚙ 管理标签</button>
       </div>
       <div class="view-switch">
         <button class="chip active" data-v="list">列表</button>
@@ -53,7 +142,9 @@ WB.sections.work = function (root) {
   let filter = 'all';
   let view = 'list';
   let tagFilter = '';
+  let calView = 'month'; // 日历子视图：month / week / day
   let cur = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  let curWeekStart = weekStartLocal(selectedDate);
   let selectedDate = todayLocal();
   let schedDate = selectedDate;
   let dueMapCache = {};
@@ -61,6 +152,13 @@ WB.sections.work = function (root) {
   const expanded = {};
   function pad(n) { return String(n).padStart(2, '0'); }
   function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function weekStartLocal(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay(); // 0=周日
+    const diff = (dow === 0) ? -6 : 1 - dow; // 以周一为一周起点
+    d.setDate(d.getDate() + diff);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
 
   function norm(r) {
     r = Object.assign({}, r);
@@ -204,6 +302,8 @@ WB.sections.work = function (root) {
     const box = E.$('#w-tagChips', root);
     const tags = [...new Set(allRows.flatMap(r => (r.tags || '').split(',').map(s => s.trim()).filter(Boolean)))];
     box.innerHTML = tags.map(t => `<button class="chip ${tagFilter === t ? 'active' : ''}" data-tag="${E.escapeHtml(t)}">${E.escapeHtml(t)}</button>`).join('');
+    const dl = E.$('#w-tagList', root);
+    if (dl) dl.innerHTML = tags.map(t => `<option value="${E.escapeHtml(t)}">`).join('');
   }
 
   // ---- 看板 ----
@@ -299,12 +399,27 @@ WB.sections.work = function (root) {
   function renderCalendar(dueMap) {
     const cal = E.$('#w-calendar', root);
     cal.innerHTML = '';
-    const { y, m } = cur;
     const head = E.el(`<div class="cal-head">
-      <button id="calPrev" class="cal-nav">‹</button>
-      <span class="cal-title">${y}年${m + 1}月</span>
-      <button id="calNext" class="cal-nav">›</button>
+      <div class="cal-navgrp">
+        <button id="calPrev" class="cal-nav">‹</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button id="calNext" class="cal-nav">›</button>
+      </div>
+      <div class="cal-sub">
+        <button class="chip calv ${calView === 'month' ? 'active' : ''}" data-calv="month">月</button>
+        <button class="chip calv ${calView === 'week' ? 'active' : ''}" data-calv="week">周</button>
+        <button class="chip calv ${calView === 'day' ? 'active' : ''}" data-calv="day">日</button>
+      </div>
     </div>`);
+    cal.appendChild(head);
+    if (calView === 'month') renderMonth(cal, dueMap);
+    else if (calView === 'week') renderWeek(cal, dueMap);
+    else renderDay(cal, dueMap);
+  }
+
+  function renderMonth(cal, dueMap) {
+    const { y, m } = cur;
+    E.$('#calTitle', cal).textContent = `${y}年${m + 1}月`;
     const grid = E.el(`<div class="cal-grid"></div>`);
     ['日', '一', '二', '三', '四', '五', '六'].forEach(d => grid.appendChild(E.el(`<div class="cal-dow">${d}</div>`)));
     const firstDow = new Date(y, m, 1).getDay();
@@ -322,7 +437,52 @@ WB.sections.work = function (root) {
       </div>`);
       grid.appendChild(cell);
     }
-    cal.appendChild(head); cal.appendChild(grid);
+    cal.appendChild(grid);
+  }
+
+  function renderWeek(cal, dueMap) {
+    const start = new Date(curWeekStart + 'T00:00:00');
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    E.$('#calTitle', cal).textContent = `${curWeekStart.slice(5)} ~ ${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    const grid = E.el(`<div class="week-grid"></div>`);
+    const todayStr = todayLocal();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const ds = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      const dow = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+      const items = (dueMap[ds] || []);
+      const evs = allRows.filter(r => r.kind === 'event' && r.due_date === ds);
+      const cell = E.el(`<div class="week-col ${ds === todayStr ? 'today' : ''} ${ds === selectedDate ? 'sel' : ''}" data-date="${ds}">
+        <div class="week-dow">周${dow}</div>
+        <div class="week-date">${pad(d.getMonth() + 1)}/${pad(d.getDate())}</div>
+        <div class="week-items">
+          ${items.map(t => `<div class="week-it ${t.kanban_status === 'done' || t.status === 'done' ? 'done' : ''}"><span class="week-dot p-${t.priority || 'mid'}"></span>${E.escapeHtml(t.title)}</div>`).join('')}
+          ${evs.map(t => `<div class="week-it evt">🎂 ${E.escapeHtml(t.title)}</div>`).join('')}
+        </div>
+      </div>`);
+      grid.appendChild(cell);
+    }
+    cal.appendChild(grid);
+  }
+
+  function renderDay(cal, dueMap) {
+    const ds = selectedDate;
+    const d = new Date(ds + 'T00:00:00');
+    const dow = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+    E.$('#calTitle', cal).textContent = `${ds} 周${dow}`;
+    const items = (dueMap[ds] || []);
+    const evs = allRows.filter(r => r.kind === 'event' && r.due_date === ds);
+    const box = E.el(`<div class="day-view">
+      <div class="day-items">
+        ${items.length || evs.length ? '' : '<div class="empty">这一天没有安排</div>'}
+        ${items.map(t => `<div class="day-it ${t.kanban_status === 'done' || t.status === 'done' ? 'done' : ''}">
+          <span class="week-dot p-${t.priority || 'mid'}"></span>
+          <div class="day-it-body"><div class="day-it-title">${E.escapeHtml(t.title)}</div>${t.due_time ? `<div class="day-it-time">⏰ ${t.due_time}</div>` : ''}</div>
+        </div>`).join('')}
+        ${evs.map(t => `<div class="day-it evt">🎂 <div class="day-it-body"><div class="day-it-title">${E.escapeHtml(t.title)}</div><div class="day-it-time">纪念日</div></div></div>`).join('')}
+      </div>
+    </div>`);
+    cal.appendChild(box);
   }
   function renderDayList() {
     const label = E.$('#w-dayLabel', root);
@@ -405,6 +565,10 @@ WB.sections.work = function (root) {
 
   // 顶部筛选 / 标签 / 视图
   E.$('#w-filterRow', root).addEventListener('click', (e) => {
+    if (e.target.matches('#w-tagMgr')) {
+      WB.tagMgr.open('todos', ['title', 'note'], () => { render(); });
+      return;
+    }
     if (e.target.matches('.chip[data-f]')) {
       filter = e.target.dataset.f;
       E.$$('#w-filterRow .chip[data-f]', root).forEach(c => c.classList.toggle('active', c === e.target));
@@ -447,12 +611,30 @@ WB.sections.work = function (root) {
       } finally { render(); }
       return;
     }
-    if (e.target.matches('#calPrev')) { cur.m--; if (cur.m < 0) { cur.m = 11; cur.y--; } renderCalendar(dueMapCache); }
-    if (e.target.matches('#calNext')) { cur.m++; if (cur.m > 11) { cur.m = 0; cur.y++; } renderCalendar(dueMapCache); }
-    const cell = e.target.closest('.cal-cell');
+    if (e.target.matches('#calPrev')) {
+      if (calView === 'month') { cur.m--; if (cur.m < 0) { cur.m = 11; cur.y--; } }
+      else if (calView === 'week') { const s = new Date(curWeekStart + 'T00:00:00'); s.setDate(s.getDate() - 7); curWeekStart = s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate()); }
+      else { const s = new Date(selectedDate + 'T00:00:00'); s.setDate(s.getDate() - 1); selectedDate = s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate()); }
+      renderCalendar(dueMapCache); if (calView !== 'month') renderDayList();
+    }
+    if (e.target.matches('#calNext')) {
+      if (calView === 'month') { cur.m++; if (cur.m > 11) { cur.m = 0; cur.y++; } }
+      else if (calView === 'week') { const s = new Date(curWeekStart + 'T00:00:00'); s.setDate(s.getDate() + 7); curWeekStart = s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate()); }
+      else { const s = new Date(selectedDate + 'T00:00:00'); s.setDate(s.getDate() + 1); selectedDate = s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate()); }
+      renderCalendar(dueMapCache); if (calView !== 'month') renderDayList();
+    }
+    const calvBtn = e.target.closest('.calv');
+    if (calvBtn) {
+      calView = calvBtn.dataset.calv;
+      if (calView === 'week') curWeekStart = weekStartLocal(selectedDate);
+      renderCalendar(dueMapCache);
+      if (calView !== 'month') renderDayList();
+      return;
+    }
+    const cell = e.target.closest('.cal-cell, .week-col');
     if (cell && cell.dataset.date) {
       selectedDate = cell.dataset.date;
-      E.$$('.cal-cell', root).forEach(c => c.classList.toggle('sel', c.dataset.date === selectedDate));
+      E.$$('.cal-cell, .week-col', root).forEach(c => c.classList.toggle('sel', c.dataset.date === selectedDate));
       renderDayList();
     }
     if (e.target.matches('#w-schedAdd')) {
@@ -562,10 +744,13 @@ WB.sections.study = function (root) {
       </div>
       <div class="add-row">
         <input id="n-title" placeholder="笔记标题" maxlength="120">
-        <input id="n-tags" placeholder="标签，逗号隔开" maxlength="80">
+        <input id="n-tags" placeholder="标签，逗号隔开" maxlength="80" list="n-tagList">
+        <datalist id="n-tagList"></datalist>
+        <button id="n-tagMgr" class="btn-ghost" title="新建/改名/删除标签">⚙ 管理标签</button>
         <button id="n-add" class="btn-primary">新建</button>
       </div>
       <ul id="n-list" class="list"></ul>`;
+    E.$('#n-tagMgr', el).addEventListener('click', () => { WB.tagMgr.open('notes', ['title', 'content'], () => { renderNotesList(); }); });
     E.$('#n-search', el).addEventListener('input', (e) => { noteFilter = e.target.value.trim().toLowerCase(); renderNotesList(); });
     E.$('#n-cat', el).addEventListener('change', () => { catFilter = E.$('#n-cat', el).value; renderNotesList(); });
     E.$('#n-add', el).addEventListener('click', async () => {
@@ -597,6 +782,8 @@ WB.sections.study = function (root) {
     let rows = allNotes.filter(r => !r.is_deleted);
     if (noteFilter) rows = rows.filter(r => (r.title + ' ' + (r.content || '')).toLowerCase().includes(noteFilter));
     if (catFilter) rows = rows.filter(r => r.category === catFilter);
+    const dl = E.$('#n-tagList', root);
+    if (dl) dl.innerHTML = [...new Set(allNotes.flatMap(r => (r.tags || '').split(',').map(s => s.trim()).filter(Boolean)))].map(t => `<option value="${E.escapeHtml(t)}">`).join('');
     ul.innerHTML = '';
     if (!rows.length) { ul.appendChild(E.el('<li class="empty">还没有笔记</li>')); return; }
     rows.forEach(r => {
