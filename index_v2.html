@@ -40,21 +40,21 @@
   --topbar-h:     68px;
 }
 :root[data-theme="dark"] {
-  --bg:           #0E0E10;
-  --bg-soft:      #161618;
-  --card:         #1B1B1F;
-  --card-2:       #232327;
-  --ink:          #F5F5F5;
-  --ink-soft:     #C2C2C8;
-  --ink-muted:    #7A7A82;
-  --line:         #2A2A2E;
-  --line-soft:    #1F1F23;
-  --yellow:       #F5D547;
-  --yellow-soft:  #5C4D14;
-  --orange:       #F26B3A;
-  --orange-soft:  #6B2E14;
-  --shadow:       0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
-  --shadow-deep:  0 1px 2px rgba(0,0,0,0.3), 0 24px 60px rgba(0,0,0,0.55);
+  --bg:           #0F1A14;
+  --bg-soft:      #142219;
+  --card:         #1A2D20;
+  --card-2:       #233627;
+  --ink:          #E8F0EA;
+  --ink-soft:     #B9C9BE;
+  --ink-muted:    #7E9185;
+  --line:         #2A3B2E;
+  --line-soft:    #1E2C21;
+  --yellow:       #D4F257;
+  --yellow-soft:  #3D4A1C;
+  --orange:       #F2874A;
+  --orange-soft:  #5E3214;
+  --shadow:       0 1px 2px rgba(4,12,7,0.4), 0 8px 24px rgba(4,12,7,0.5);
+  --shadow-deep:  0 1px 2px rgba(4,12,7,0.4), 0 24px 60px rgba(4,12,7,0.6);
   --good:         #4ADE80;
   --bad:          #F87171;
   --radius:       20px;
@@ -66,7 +66,7 @@
 
 /* ---------- 基础 ---------- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin:0; padding:0; height:100%; }
+html, body { margin:0; padding:0; height:100%; overscroll-behavior-x: none; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
@@ -168,7 +168,9 @@ a { color: inherit; text-decoration: none; }
 .main {
   grid-column: 2;
   height: 100%;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 28px 36px 80px;
   scroll-behavior: smooth;
@@ -224,7 +226,7 @@ a { color: inherit; text-decoration: none; }
   display: flex; flex-direction: column; justify-content: space-between;
 }
 .hero-welcome .hi { font-size: 14px; font-weight: 600; opacity: 0.7; }
-.hero-welcome .big { font-size: 36px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; margin-top: 6px; }
+.hero-welcome .big { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; margin-top: 6px; }
 .hero-welcome .meta { font-size: 14px; margin-top: 12px; opacity: 0.8; }
 .hero-decor { position: absolute; right: -40px; bottom: -40px; width: 240px; height: 240px; border-radius: 50%; background: rgba(0,0,0,0.12); }
 .hero-decor-2 { position: absolute; right: 60px; bottom: 30px; width: 110px; height: 110px; border-radius: 50%; background: rgba(0,0,0,0.18); }
@@ -317,6 +319,8 @@ a { color: inherit; text-decoration: none; }
 .folder-item.is-active .folder-count { color: var(--yellow); opacity: 0.7; }
 .folder-item .folder-icon { width: 18px; height: 18px; }
 .folder-item .folder-count { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
+.folder-rename { margin-left: 4px; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 14px; line-height: 1; flex-shrink: 0; }
+.folder-rename:hover { background: var(--card-2); color: var(--ink); }
 .folder-add { display:flex; gap: 6px; margin-top: 12px; }
 .folder-add input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
 .notes-list { background: var(--card); border-radius: var(--radius); padding: 12px; overflow-y: auto; border: 1px solid var(--line-soft); }
@@ -338,6 +342,8 @@ a { color: inherit; text-decoration: none; }
 .note-editor-head .icon-btn:hover { background: var(--card-2); color: var(--ink); }
 .note-editor-head .icon-btn svg { width: 15px; height: 15px; }
 .note-editor-head .icon-btn.is-on { color: var(--orange); }
+.note-folder-move { display:inline-flex; align-items:center; gap:4px; }
+.note-folder-select { font-size: 11px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; max-width: 120px; }
 .note-editor-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
 .note-editor-body textarea { padding: 18px; font-size: 14px; line-height: 1.65; resize: none; height: 100%; border-right: 1px solid var(--line-soft); }
 .note-editor-body .preview { padding: 18px; overflow-y: auto; font-size: 14px; line-height: 1.65; }
@@ -403,7 +409,7 @@ a { color: inherit; text-decoration: none; }
 .drawer-mask.is-open { opacity: 1; pointer-events: auto; }
 .drawer {
   position: fixed; top: 0; right: -100%; bottom: 0;
-  width: 480px; max-width: 100vw;
+  width: 480px; max-width: 100%;
   background: var(--bg);
   z-index: 40;
   display: flex; flex-direction: column;
@@ -518,7 +524,7 @@ a { color: inherit; text-decoration: none; }
   .pomo-bar-row { grid-template-columns: 1fr; }
   .pomodoro-grid { grid-template-columns: 1fr; }
   .todo-item .actions { opacity: 1; }
-  .topbar { padding: 0 12px; }
+  .topbar { padding: 0 12px; padding-top: env(safe-area-inset-top, 0px); }
   .view-title { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .todo-item .meta { gap: 6px; font-size: 11px; }
 }
@@ -723,10 +729,13 @@ a { color: inherit; text-decoration: none; }
               <textarea id="noteContent" placeholder="写点什么... 支持 Markdown ： # 标题、- 列表、**粗**、`code`、&gt;引用"></textarea>
               <div class="preview" id="notePreview"></div>
             </div>
-            <div style="padding: 8px 18px; border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--ink-muted); display:flex; gap: 14px;">
+            <div style="padding: 8px 18px; border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--ink-muted); display:flex; gap: 14px; align-items:center; flex-wrap: wrap;">
               <span id="noteStat">0 字 · 0 行</span>
               <span id="noteTs"></span>
               <span class="spacer"></span>
+              <label class="note-folder-move">移动到
+                <select id="noteFolderSelect" class="note-folder-select"></select>
+              </label>
               <span>修改自动保存</span>
             </div>
           </div>
@@ -886,8 +895,17 @@ a { color: inherit; text-decoration: none; }
 // 每次实质改动前必须先问老板确认，改完 x +1。例：累计 48 次改动 → V1.0.48。
 // 本版（V2 重设计初版发布）为 V1.0.0；旧线上 V1.0.38 已整体替换，版本号重新从 0 计数。
 // 改动记录：V1.0.1 = 顶栏品牌区两行化（"Workbench" 一行 + "糊涂蛋工作台" 一行），同步状态条 nowrap 单行（V1.0.0 升级）。
-// 改动记录：V1.0.2 = 手机端体验优化：首页标题 760px 以下缩到 22px 单行省略号；待办时间格式今年内省去年份；时间 span 强制单行不内换；窄屏 meta 紧凑（gap 6 / 字号 11）；顶栏左右间距再压到 12px（V1.0.1 升级）。
-const APP_VERSION = "V1.0.2";
+// 改动记录：V1.0.3 = 八项手机端体验与 bug 修复：
+//   1) 深色模式改为墨绿（深森绿底 #0F1A14 / 卡片 #1A2D20 / 文字 #E8F0EA / 强调黄绿 #D4F257）；
+//   2) 苹果端横向滑动：html/body 禁横向橡皮筋 + .main 裁横向溢出(min-width:0/overflow-x:hidden) + 抽屉 max-width 100vw→100%（压症状+找根）；
+//   3) 备忘录：文件夹可改名(✎)、笔记可移动到文件夹(下拉)；
+//   4) 待办"今天"：今日新建且无截止日期的待办也进"今天"；
+//   5) 待办优先级/重复：点选改用 $$ 取全部，修多选 bug；
+//   6) 首页"N 件事在等您"字号 36→22；
+//   7) 苹果端顶栏：移动端 .topbar 补回 safe-area-inset-top，不再被刘海挡；
+//   8) 登录：首次也只输一次口令（去掉第二次确认框）。
+// （V1.0.2 升级）
+const APP_VERSION = "V1.0.3";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1297,7 +1315,7 @@ function todoApplyFilter(list) {
   const f = state.filter.todo;
   const todayK = dayKey();
   return list.filter(t => {
-    if (f === "today") return !t.done && t.dueAt && fmtDay(t.dueAt) === todayK;
+    if (f === "today") return !t.done && ( (t.dueAt && fmtDay(t.dueAt) === todayK) || (!t.dueAt && t.createdAt && fmtDay(t.createdAt) === todayK) );
     if (f === "over")  return !t.done && t.dueAt && new Date(t.dueAt) < todayStart();
     if (f === "open")  return !t.done;
     if (f === "done")  return t.done;
@@ -1470,12 +1488,12 @@ function openTodoDrawer(t) {
   };
   $(".prio-row").onclick = (e) => {
     const t = e.target.closest(".prio-opt"); if (!t) return;
-    $(".prio-row .prio-opt").classList.remove("is-active");
+    $$(".prio-row .prio-opt").forEach(x => x.classList.remove("is-active"));
     t.classList.add("is-active");
   };
   $(".recur-row").onclick = (e) => {
     const t = e.target.closest(".recur-opt"); if (!t) return;
-    $(".recur-row .recur-opt").classList.remove("is-active");
+    $$(".recur-row .recur-opt").forEach(x => x.classList.remove("is-active"));
     t.classList.add("is-active");
   };
   // 标签
@@ -1547,6 +1565,7 @@ function renderFolders() {
       <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
       <span>${escHtml(f.name)}</span>
       <span class="folder-count">${counts[f.id]||0}</span>
+      ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名">✎</button>` : `` }
     </div>
   `).join("") + `
     <div class="folder-add">
@@ -1558,6 +1577,17 @@ function renderFolders() {
     state.filter.noteFolder = el.dataset.fold;
     renderNotes();
     renderFolders();
+  });
+  $("#folderList").querySelectorAll("[data-rename]").forEach(el => el.onclick = (e) => {
+    e.stopPropagation();
+    const f = state.data.folders.find(x => x.id === el.dataset.rename);
+    if (!f) return;
+    const nv = window.prompt("文件夹改名", f.name);
+    if (nv === null) return;
+    const v = nv.trim();
+    if (!v) return;
+    f.name = v;
+    saveLocal(); scheduleSync(); renderFolders(); renderNotes(); toast("已改名");
   });
   $("#btnAddFolder").onclick = () => {
     const v = $("#newFolderInput").value.trim();
@@ -1618,6 +1648,15 @@ function renderNoteEditor() {
   const chars = (n.content||"").length;
   $("#noteStat").textContent = `${chars} 字 · ${lines} 行`;
   $("#noteTs").textContent = n.createdAt ? `创建 ${fmtDate(n.createdAt)} · 修改 ${fmtDate(n.updatedAt)}` : "";
+  const fsel = $("#noteFolderSelect");
+  if (fsel) {
+    fsel.innerHTML = state.data.folders.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join("");
+    fsel.value = n.folder && state.data.folders.some(f => f.id === n.folder) ? n.folder : (state.data.folders[0] && state.data.folders[0].id) || "";
+    fsel.onchange = () => {
+      n.folder = fsel.value; n.updatedAt = nowISO();
+      saveLocal(); scheduleSync(); renderNotes(); toast("已移动");
+    };
+  }
 }
 function saveActiveNote() {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
@@ -2000,27 +2039,11 @@ async function bootLogin() {
   const cachedUid = localStorage.getItem("wb2_last_uid");
   if (cachedUid) {
     state.userId = cachedUid;
-    // 探测：拉一条设置表记录是否 200（接口失败/表缺失不会阻断，markOffline 会切换离线模式）
-    try {
-      const r = await supaFetch(`/rest/v1/wb2_folders_v1?user_id=eq.${cachedUid}&select=id&limit=1`);
-      if (r && Array.isArray(r) && r.length) {
-        // 已注册 → 单输入框
-        $("#loginPass").placeholder = "输入口令解锁";
-        $("#loginPass2").style.display = "none";
-      } else {
-        // 没注册过 OR 云端离线 → 要求两次输入
-        $("#loginPass").placeholder = "首次使用：设一个口令 (≥4 位)";
-        $("#loginPass2").style.display = "block";
-        $("#loginTitle").textContent = "创建工作台";
-        $("#loginSub").textContent  = "首次设定口令后，云端的数据只能被相同口令解开。";
-      }
-    } catch (e) {
-      $("#loginPass").placeholder = "可能首次使用 · 设口令";
-      $("#loginPass2").style.display = "block";
-    }
+    $("#loginPass").placeholder = "输入口令解锁";
+    $("#loginPass2").style.display = "none";
   } else {
     $("#loginPass").placeholder = "设一个新口令 (≥4 位)";
-    $("#loginPass2").style.display = "block";
+    $("#loginPass2").style.display = "none";
     $("#loginTitle").textContent = "创建工作台";
     $("#loginSub").textContent  = "首次设定口令后，云端的数据只能被相同口令解开。";
   }
