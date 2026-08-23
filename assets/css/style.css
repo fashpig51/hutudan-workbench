@@ -193,7 +193,7 @@ body.light{
 
 /* 口令弹窗 */
 .modal-mask{position:fixed;inset:0;background:rgba(44,62,80,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:50}
-.modal-box{background:var(--bg2);border:1px solid var(--glass-bd);border-radius:18px;padding:26px 24px;width:320px;box-shadow:0 4px 22px rgba(0,0,0,.38);text-align:center}
+#passModal .modal-box{background:var(--bg2);border:1px solid var(--glass-bd);border-radius:18px;padding:26px 24px;width:240px;max-width:calc(100vw - 32px);box-shadow:0 4px 22px rgba(0,0,0,.38);text-align:center}
 .modal-box h2{font-size:18px;margin-bottom:10px;color:var(--text);font-weight:700;letter-spacing:.5px}
 .modal-box p{color:var(--muted);font-size:12.5px;margin-bottom:18px;line-height:1.55}
 .modal-box input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--glass-bd);color:var(--text);padding:11px 4px;border-radius:0;outline:none;font-size:15px;margin-bottom:18px;text-align:center;transition:border-color .18s}
