@@ -63,6 +63,12 @@
   --sidebar-w:    76px;
   --topbar-h:     68px;
 }
+/* 深色模式：亮底元素（主按钮/激活标签/激活文件夹/计时模式/顶栏激活）统一深黑字，保证对比清晰 */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .filter-chip.is-on,
+:root[data-theme="dark"] .folder-item.is-active,
+:root[data-theme="dark"] .pomo-mode.is-on,
+:root[data-theme="dark"] .topbar-btn.is-on { color: #1B1B1F; }
 
 /* ---------- 基础 ---------- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -103,7 +109,7 @@ a { color: inherit; text-decoration: none; }
 .brand-stack { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
 .brand-main { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
 .brand-sub  { font-size:13px; color:var(--ink-muted); font-weight:500; }
-.home-brand { margin-bottom: 14px; }
+.home-brand { margin-bottom: 28px; }
 
 .topbar-right { display:flex; align-items:center; gap:8px; }
 .topbar-btn {
@@ -321,21 +327,27 @@ a { color: inherit; text-decoration: none; }
 .folder-item.is-active .folder-count { color: var(--yellow); opacity: 0.7; }
 .folder-item .folder-icon { width: 18px; height: 18px; }
 .folder-item .folder-count { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
-.folder-rename { margin-left: 4px; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 14px; line-height: 1; flex-shrink: 0; }
+.folder-rename { margin-left: 8px; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 20px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
 .folder-rename:hover { background: var(--card-2); color: var(--ink); }
 .folder-add { display:flex; gap: 6px; margin-top: 12px; }
 .folder-add input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
 .notes-list { background: var(--card); border-radius: var(--radius); padding: 12px; overflow-y: auto; border: 1px solid var(--line-soft); }
 .notes-list-head { display:flex; align-items:center; gap: 8px; padding: 8px 6px 12px; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px; }
 .notes-list-head input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
-.note-card { padding: 14px; border-radius: 12px; cursor:pointer; transition: background 0.15s; }
+.note-card { padding: 14px; border-radius: 12px; cursor:pointer; transition: background 0.15s; display:flex; align-items:flex-start; gap: 8px; }
 .note-card:hover { background: var(--card-2); }
 .note-card.is-active { background: var(--card-2); border: 1px solid var(--line); padding: 13px; }
+.note-card-main { flex: 1; min-width: 0; }
 .note-card .title { font-size: 15px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-card .preview { font-size: 12px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; display:-webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .note-card .time { font-size: 11px; color: var(--ink-muted); margin-top: 6px; }
 .note-card .icon-row { display:inline-flex; align-items:center; gap: 4px; margin-left: 6px; }
 .note-card .icon-row svg { width: 11px; height: 11px; color: var(--orange); }
+.note-del { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center; color: var(--ink-muted); background: transparent; opacity: 0; transition: opacity 0.15s, background 0.15s, color 0.15s; }
+.note-del svg { width: 15px; height: 15px; }
+.note-card:hover .note-del { opacity: 1; }
+.note-del:hover { background: var(--bad); color: #fff; }
+@media (max-width: 1100px) { .note-del { opacity: 1; } }
 
 .note-editor { background: var(--card); border-radius: var(--radius); border: 1px solid var(--line-soft); display:flex; flex-direction: column; overflow: hidden; }
 .note-editor-head { display:flex; align-items:center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); }
@@ -930,7 +942,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.4";
+const APP_VERSION = "V1.0.5";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1233,6 +1245,7 @@ async function syncLoad() {
 
 /* ---------------------- 路由 ---------------------- */
 function go(tab, opts) {
+  if (tab !== "notes" && state.select.noteId === "__new__") state.select.noteId = null;
   state.filter.tab = tab;
   $$(".view").forEach(v => v.classList.toggle("is-active", v.id === "view-" + tab));
   $$(".nav-btn").forEach(b => b.classList.toggle("is-active", b.dataset.go === tab));
@@ -1590,7 +1603,7 @@ function renderFolders() {
       <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
       <span>${escHtml(f.name)}</span>
       <span class="folder-count">${counts[f.id]||0}</span>
-      ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名">✎</button>` : `` }
+      ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名">›</button>` : `` }
     </div>
   `).join("") + `
     <div class="folder-add">
@@ -1639,9 +1652,14 @@ function renderNotes() {
   }
   body.innerHTML = list.map(n => `
     <div class="note-card ${state.select.noteId===n.id?'is-active':''}" data-note="${n.id}">
-      <div class="title">${escHtml(n.title || "(无标题)")}</div>
-      <div class="preview">${escHtml((n.content||"").replace(/\n/g," ").slice(0,120))}</div>
-      <div class="time">${fmtDate(n.updatedAt)}${n.locked?'<span class="icon-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg></span>':''}</div>
+      <div class="note-card-main">
+        <div class="title">${escHtml(n.title || "(无标题)")}</div>
+        <div class="preview">${escHtml((n.content||"").replace(/\n/g," ").slice(0,120))}</div>
+        <div class="time">${fmtDate(n.updatedAt)}${n.locked?'<span class="icon-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg></span>':''}</div>
+      </div>
+      <button class="note-del" data-del="${n.id}" title="删除">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      </button>
     </div>
   `).join("");
   body.querySelectorAll("[data-note]").forEach(el => el.onclick = () => {
@@ -1650,13 +1668,43 @@ function renderNotes() {
     if (window.innerWidth <= 1100) $("#notesLayout").classList.add("show-editor");
     renderNotes();
   });
+  body.querySelectorAll("[data-del]").forEach(el => el.onclick = (e) => {
+    e.stopPropagation();
+    const id = el.dataset.del;
+    const nn = state.data.notes.find(x => x.id === id);
+    confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(nn?nn.title||"(无标题)":"")}」吗？`, danger:true, onYes: () => {
+      state.data.notes = state.data.notes.filter(x => x.id !== id);
+      if (state.select.noteId === id) state.select.noteId = state.data.notes[0]?.id || null;
+      saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
+    }});
+  });
   $("#notesSub").textContent = `${state.data.notes.length} 篇笔记 · 当前 ${list.length}`;
 }
 function renderNoteEditor() {
-  const n = state.data.notes.find(x => x.id === state.select.noteId);
-  if (!n) {
+  const isNew = state.select.noteId === "__new__";
+  const n = isNew ? null : state.data.notes.find(x => x.id === state.select.noteId);
+  if (!n && !isNew) {
     $("#noteEditorEmpty").classList.remove("hidden");
     $("#noteEditorBody").classList.add("hidden");
+    return;
+  }
+  if (isNew) {
+    $("#noteEditorEmpty").classList.add("hidden");
+    $("#noteEditorBody").classList.remove("hidden");
+    $("#noteEditorBody").style.display = "flex";
+    if ($("#noteTitle").value !== "") $("#noteTitle").value = "";
+    if ($("#noteContent").value !== "") $("#noteContent").value = "";
+    $("#btnPinNote").classList.remove("is-on");
+    $("#btnLockNote").classList.remove("is-on");
+    $("#notePreview").innerHTML = '<div style="color:var(--ink-muted)">左侧写笔记，右侧自动预览。</div>';
+    $("#noteStat").textContent = `0 字 · 1 行`;
+    $("#noteTs").textContent = "";
+    const fsel = $("#noteFolderSelect");
+    if (fsel) {
+      fsel.innerHTML = state.data.folders.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join("");
+      fsel.value = (state.data.folders[0] && state.data.folders[0].id) || "";
+      fsel.onchange = () => { /* 新建态移动：下次保存时生效 */ };
+    }
     return;
   }
   $("#noteEditorEmpty").classList.add("hidden");
@@ -1698,8 +1746,17 @@ function saveActiveNote() {
   scheduleSync();
 }
 let noteSaveTimer = null;
-$("#noteTitle").oninput = () => { clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(saveActiveNote, 250); };
-$("#noteContent").oninput = () => { clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(saveActiveNote, 250); };
+function ensureNewNoteSaved() {
+  if (state.select.noteId !== "__new__") return;
+  const fsel = $("#noteFolderSelect");
+  const folder = (fsel && fsel.value) ? fsel.value : (state.data.folders[0]?.id || "f_default");
+  const n = { id: uid(), title: $("#noteTitle").value, content: $("#noteContent").value, folder, pinned: false, locked: false, createdAt: nowISO(), updatedAt: nowISO() };
+  state.data.notes.unshift(n);
+  state.select.noteId = n.id;
+  saveLocal(); scheduleSync(); renderNotes(); renderFolders();
+}
+$("#noteTitle").oninput = () => { ensureNewNoteSaved(); clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(saveActiveNote, 250); };
+$("#noteContent").oninput = () => { ensureNewNoteSaved(); clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(saveActiveNote, 250); };
 
 $("#btnPinNote").onclick = () => {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
@@ -1752,23 +1809,10 @@ $("#btnDelNote").onclick = () => {
   }});
 };
 $("#btnNewNote").onclick = () => {
-  const id = uid();
-  const folder = state.filter.noteFolder && state.filter.noteFolder !== "_all" && state.filter.noteFolder !== "_pin" ? state.filter.noteFolder : (state.data.folders[0]?.id || "f_default");
-  const n = {
-    id,
-    title: "新笔记",
-    content: "",
-    folder,
-    pinned: false,
-    locked: false,
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
-  };
-  state.data.notes.unshift(n);
-  state.select.noteId = id;
-  saveLocal(); scheduleSync();
-  renderNotes(); renderNoteEditor(); renderFolders();
-  setTimeout(() => { $("#noteTitle").focus(); $("#noteTitle").select(); }, 50);
+  state.select.noteId = "__new__";
+  renderNotes(); renderNoteEditor();
+  if (window.innerWidth <= 1100) $("#notesLayout").classList.add("show-editor");
+  setTimeout(() => { $("#noteTitle").focus(); }, 50);
 };
 $("#noteSearch").oninput = () => renderNotes();
 
