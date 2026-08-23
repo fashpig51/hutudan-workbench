@@ -370,7 +370,7 @@ a { color: inherit; text-decoration: none; }
 .note-folder-select { font-size: 11px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; max-width: 120px; }
 .note-editor-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
 .note-editor-body textarea { padding: 18px; font-size: 14px; line-height: 1.65; resize: none; height: 100%; border-right: 1px solid var(--line-soft); }
-.note-editor-body .preview { padding: 18px; overflow-y: auto; font-size: 14px; line-height: 1.65; overflow-x: hidden; word-break: break-word; overflow-wrap: anywhere; }
+.note-editor-body .preview { padding: 18px; overflow-y: auto; font-size: 14px; line-height: 1.65; }
 .note-editor-empty { display:flex; align-items:center; justify-content:center; height: 100%; color: var(--ink-muted); flex-direction: column; gap: 12px; }
 .note-editor-empty svg { width: 56px; height: 56px; opacity: 0.35; }
 
@@ -583,7 +583,7 @@ a { color: inherit; text-decoration: none; }
   .note-editor-head .icon-btn svg { width: 18px; height: 18px; }
   .note-editor-head input.title { font-size: 19px; height: 40px; }
   .note-editor-body textarea { font-size: 16px; line-height: 1.7; padding: 14px; }
-  .note-editor-body .preview { padding: 14px; overflow-x: hidden; word-break: break-word; overflow-wrap: anywhere; }
+  .note-editor-body .preview { padding: 14px; }
   /* 底部状态行压缩，正文才能真正撑满 */
   .note-editor > div:last-child { padding: 6px 14px !important; }
   .note-folder-select { font-size: 13px; max-width: 160px; }
@@ -954,10 +954,8 @@ a { color: inherit; text-decoration: none; }
     <input id="loginPass2" type="password" placeholder="再输一次确认" autocomplete="off" style="display:none" />
     <div class="login-error" id="loginErr"></div>
     <button class="btn btn-primary" id="btnLogin" style="width:100%; justify-content:center">进入</button>
-    <button class="btn btn-ghost" id="btnCreateSpace" style="width:100%; justify-content:center; margin-top:10px; display:none">我是新用户 · 创建工作台</button>
     <div class="login-hint">
-      • 输入口令后先去云端核对，对口令才进对应的那份数据。<br>
-      • 同一口令 = 同一份数据，多设备共享，换手机也能找回。<br>
+      • 同一口令 = 同一份数据，多设备共享。<br>
       • 口令是您私物，忘了谁都解不开。<br>
       • 数据先用口令加密再传到云端，云端看不到明文。
     </div>
@@ -994,7 +992,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.16";
+const APP_VERSION = "V1.0.15";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1106,7 +1104,6 @@ async function decrypt(pass, b64) {
 const state = {
   userId: null,
   pass: null,
-  createMode: false,
   theme: "light",
   filter: { tab: "home", todo: "all", noteFolder: "_all", noteSearch: "" },
   data: {
@@ -2172,14 +2169,12 @@ async function bootLogin() {
   state.userId = null;
   $("#loginHost").classList.remove("hidden");
   $("#loginTitle").textContent = "打开工作台";
-  $("#loginSub").textContent  = "输入口令解锁。云端核对对口令才进对应的数据。";
+  $("#loginSub").textContent  = "输入口令解锁。第一次设的口令就是您的钥匙。";
   $("#loginPass").value = "";
   $("#loginPass2").value = "";
   $("#loginPass2").style.display = "none";
   $("#loginErr").textContent = "";
   $("#btnLogin").textContent = "进入";
-  $("#btnCreateSpace").style.display = "none";
-  state.createMode = false;
   await syncLoad();
   // 看看是否有缓存的 userId（口令为本地尝试用）
   const cachedUid = localStorage.getItem("wb2_last_uid");
@@ -2188,8 +2183,10 @@ async function bootLogin() {
     $("#loginPass").placeholder = "输入口令解锁";
     $("#loginPass2").style.display = "none";
   } else {
-    $("#loginPass").placeholder = "输入口令解锁";
-    $("#loginPass2").style.display = "none";
+    $("#loginPass").placeholder = "设一个新口令 (≥4 位)";
+    $("#loginPass2").style.display = "block";
+    $("#loginTitle").textContent = "创建工作台";
+    $("#loginSub").textContent  = "首次设定口令后，云端的数据只能被相同口令解开。请再输一次确认。";
   }
   $("#loginHost").dataset.step = "input";
 }
@@ -2201,32 +2198,18 @@ $("#loginEye").addEventListener("click", () => {
 });
 $("#btnLogin").onclick = async () => {
   const p1 = $("#loginPass").value;
+  const p2 = $("#loginPass2").value;
   if (p1.length < 4) { $("#loginErr").textContent = "口令至少 4 位"; return; }
+  if (p2 !== "" && p2 !== p1) { $("#loginErr").textContent = "两次口令不一致"; return; }
 
   const uidHash = await userIdFromPass(p1);
   state.pass = p1;
   state.userId = uidHash;
   localStorage.setItem("wb2_last_uid", uidHash);
 
-  // 先去云端核对这份数据在不在
+  // 尝试拉取解密
   const ok = await tryUnlock(p1);
-  if (!ok) {
-    if (state.createMode) {
-      // 用户已主动点"创建工作台"，允许开新空间
-      $("#loginHost").classList.add("hidden");
-      applyTheme(loadTheme());
-      state.data.folders = [ { id:"f_default", name:"默认" }, { id:"f_inbox", name:"收件箱" } ];
-      await syncLoad();
-      saveLocal();
-      render();
-      toast("已创建新工作台", "is-good");
-      return;
-    }
-    // 没数据又没点创建：挡住，提示并露出创建按钮
-    $("#loginErr").textContent = "口令不对，或这份数据还没建过";
-    $("#btnCreateSpace").style.display = "block";
-    return;
-  }
+  if (!ok) { $("#loginErr").textContent = "口令不对，或尚未有数据"; return; }
   $("#loginHost").classList.add("hidden");
   applyTheme(loadTheme());
   await syncLoad();
@@ -2234,22 +2217,14 @@ $("#btnLogin").onclick = async () => {
   render();
   toast("已解锁", "is-good");
 };
-$("#btnCreateSpace").onclick = () => {
-  $("#loginPass2").style.display = "block";
-  $("#loginPass2").value = "";
-  $("#loginPass2").placeholder = "再输一次确认 (≥4 位)";
-  $("#loginSub").textContent = "确认创建新工作台：再输一次口令。";
-  state.createMode = true;
-  $("#btnCreateSpace").style.display = "none";
-  $("#loginErr").textContent = "";
-};
 async function tryUnlock(pass) {
   // 拿 todos 任意一条做 sanity；接口失败/表缺失不会阻断入口
   try {
     const rows = await supaFetch(`/rest/v1/${TABLES.todos}?user_id=eq.${state.userId}&select=*&limit=5`);
     if (!Array.isArray(rows) || rows.length === 0) {
-      // 云端没这份数据：挡住，不让自动建空间（创建与否由 btnLogin 判断 state.createMode）
-      return false;
+      // 全新：写一个空文件夹占位（直接走本地默认）
+      state.data.folders = [ { id:"f_default", name:"默认" }, { id:"f_inbox", name:"收件箱" } ];
+      return true;
     }
     // 校验一条加密样本（失败时不强阻，宽松放行；离线/表空都允许）
     const sample = rows.find(r => r.title && String(r.title).startsWith("__ENC__:"));
