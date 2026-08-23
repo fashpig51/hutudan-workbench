@@ -14,9 +14,18 @@ create table if not exists todos (
   status text default 'active',
   priority text default 'mid',
   due_date text,
+  due_time text,
   is_deleted boolean default false,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  parent_id text,
+  kanban_status text default 'todo',
+  tags text,
+  kind text default 'task',
+  focus_minutes integer default 0,
+  scheduled_date text,
+  scheduled_start text,
+  scheduled_end text
 );
 create index if not exists idx_todos_ws on todos(workspace_id);
 
@@ -79,3 +88,17 @@ alter publication supabase_realtime add table todos;
 alter publication supabase_realtime add table notes;
 alter publication supabase_realtime add table books;
 alter publication supabase_realtime add table habits;
+
+-- ============================================================
+-- 阶段一（工作扩展）：已建好的旧项目，在 Supabase SQL Editor 单独执行下面这段加列即可
+-- （新建项目直接跑上面整份脚本即可，这截是给老库补字段用的）
+-- ============================================================
+alter table todos add column if not exists due_time text;
+alter table todos add column if not exists parent_id text;
+alter table todos add column if not exists kanban_status text default 'todo';
+alter table todos add column if not exists tags text;
+alter table todos add column if not exists kind text default 'task';
+alter table todos add column if not exists focus_minutes integer default 0;
+alter table todos add column if not exists scheduled_date text;
+alter table todos add column if not exists scheduled_start text;
+alter table todos add column if not exists scheduled_end text;

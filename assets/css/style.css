@@ -183,3 +183,76 @@ body{
   .btn-primary{width:100%}
   .section-head h2{font-size:19px}
 }
+
+/* ===== 阶段一：工作扩展样式 ===== */
+/* 进度条 */
+.prog{display:flex;align-items:center;gap:8px;margin-top:6px}
+.prog-bar{height:6px;border-radius:4px;background:linear-gradient(90deg,var(--mint),var(--mint-d));transition:.3s;min-width:6px}
+.prog-txt{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* 子任务 */
+.sub-list{list-style:none;margin:10px 0 0 34px;display:flex;flex-direction:column;gap:6px}
+.sub-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.sub-title{font-size:13px;word-break:break-word}
+.sub-add{display:flex;gap:8px;margin-top:6px}
+.sub-add input{flex:1;background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);padding:7px 10px;border-radius:9px;outline:none;font-size:13px}
+
+/* 小按钮（专注 / 排程 / 子任务） */
+.mini-btn{background:var(--glass);border:1px solid var(--glass-bd);color:var(--muted);border-radius:9px;padding:5px 10px;cursor:pointer;font-size:12px;flex:none}
+.mini-btn:hover{border-color:var(--mint);color:var(--text)}
+
+/* 标签筛选 */
+.tag-chips{display:inline-flex;gap:6px;flex-wrap:wrap}
+
+/* 视图切换 */
+.view-switch{display:flex;gap:8px;flex-wrap:wrap}
+
+/* 看板 */
+.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.kanban-col{background:var(--glass);border:1px solid var(--glass-bd);border-radius:14px;padding:12px;min-height:120px}
+.kanban-col-head{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;color:var(--muted)}
+.kanban-col-head span{background:rgba(255,255,255,.08);border-radius:10px;padding:1px 8px;font-size:12px}
+.kanban-cards{display:flex;flex-direction:column;gap:8px}
+.kanban-card{background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:11px;padding:10px;cursor:grab}
+.kanban-card:active{cursor:grabbing}
+.kc-title{font-size:13px;font-weight:600;word-break:break-word}
+.kc-sub{font-size:11px;color:var(--muted);margin:4px 0 8px}
+.kc-move{width:100%;background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);border-radius:8px;padding:5px;font-size:12px}
+
+/* 排程 */
+.sched-tool{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sched-tool input{background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);padding:8px 12px;border-radius:10px;outline:none}
+.sched-hint{font-size:13px;color:var(--mint)}
+.sched-hint.warn{color:var(--danger)}
+.sched-rows{display:flex;flex-direction:column;gap:2px;margin-bottom:14px}
+.sched-row{display:flex;gap:10px;align-items:stretch;min-height:34px}
+.sched-row.has{background:rgba(255,255,255,.02)}
+.sched-time{width:54px;flex:none;font-size:12px;color:var(--muted);text-align:right;padding-top:7px}
+.sched-slot{flex:1;border-left:1px solid var(--glass-bd);padding:4px 0 4px 12px}
+.sched-block{background:rgba(52,224,196,.14);border:1px solid rgba(52,224,196,.35);border-radius:9px;padding:6px 10px;font-size:13px;margin:3px 0;word-break:break-word}
+.sched-block.conflict{background:rgba(255,107,107,.16);border-color:var(--danger);color:#ffd0d0}
+.sched-assign{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sched-assign select,.sched-assign input{background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);padding:9px 12px;border-radius:10px;outline:none;font-size:13px}
+
+/* 小结 */
+.summary-box{margin-bottom:16px}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.sum-card{background:var(--glass);border:1px solid var(--glass-bd);border-radius:14px;padding:16px;text-align:center}
+.sum-num{font-size:26px;font-weight:800;color:var(--mint)}
+.sum-lbl{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* 提醒横幅 / 番茄钟条 */
+.remind-bar{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:14px;background:rgba(20,28,40,.96);border:1px solid var(--mint);color:var(--text);padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;max-width:90vw}
+.remind-bar button{background:var(--mint);border:none;color:#04201b;font-weight:700;padding:6px 14px;border-radius:9px;cursor:pointer;flex:none}
+.pomo-bar{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:14px;background:rgba(20,28,40,.96);border:1px solid var(--glass-bd);color:var(--text);padding:12px 18px;border-radius:14px;box-shadow:var(--shadow);font-size:14px}
+.pomo-bar .pomo-time{font-size:18px;font-weight:800;color:var(--mint);font-variant-numeric:tabular-nums}
+.pomo-bar .pomo-stop{background:var(--glass);border:1px solid var(--glass-bd);color:var(--text);padding:6px 14px;border-radius:9px;cursor:pointer}
+
+/* 手机端适配（阶段一新增块） */
+@media (max-width:720px){
+  .kanban{grid-template-columns:1fr}
+  .sched-assign{flex-direction:column;align-items:stretch}
+  .sched-assign select,.sched-assign input{width:100%}
+  .pomo-bar{bottom:76px}
+  .remind-bar{flex-direction:row;font-size:13px}
+}

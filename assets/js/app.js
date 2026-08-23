@@ -19,6 +19,84 @@ window.WB = window.WB || {};
     { t: 'habits', enc: ['name'] }
   ];
 
+  // ---------- 番茄钟（全局浮动条）----------
+  WB.pomodoro = (function () {
+    let timer = null, remain = 0, total = 25 * 60, taskId = null;
+    function bar() {
+      let b = document.getElementById('pomoBar');
+      if (!b) {
+        b = document.createElement('div'); b.id = 'pomoBar'; b.className = 'pomo-bar';
+        b.innerHTML = '<span class="pomo-title"></span><span class="pomo-time"></span><button class="pomo-stop">停</button>';
+        document.body.appendChild(b);
+        b.querySelector('.pomo-stop').onclick = stop;
+      }
+      return b;
+    }
+    function fmt(s) { const m = Math.floor(s / 60), ss = s % 60; return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0'); }
+    async function finish() {
+      clearInterval(timer); timer = null;
+      bar().style.display = 'none';
+      if (taskId) {
+        const rows = await WB.store.list('todos', ['title', 'note']);
+        const r = rows.find(x => x.id === taskId);
+        if (r) {
+          await WB.store.upsert('todos', ['title', 'note'], Object.assign({}, r, {
+            kanban_status: 'done', status: 'done',
+            focus_minutes: (parseInt(r.focus_minutes) || 0) + 25
+          }));
+        }
+      }
+      WB.ui.toast('专注结束，已标记完成 +25分钟');
+      taskId = null;
+    }
+    function stop() { if (timer) clearInterval(timer); timer = null; bar().style.display = 'none'; taskId = null; }
+    function tick() {
+      const b = bar();
+      b.querySelector('.pomo-time').textContent = fmt(remain);
+      if (remain <= 0) { finish(); return; }
+      remain--;
+    }
+    function start(id, title) {
+      taskId = id; remain = total;
+      const b = bar();
+      b.querySelector('.pomo-title').textContent = '专注：' + title;
+      b.style.display = 'flex';
+      if (timer) clearInterval(timer);
+      tick(); timer = setInterval(tick, 1000);
+    }
+    return { start: start, stop: stop };
+  })();
+
+  // ---------- 到期提醒（页面开着时弹横幅）----------
+  let reminded = new Set();
+  function isDoneR(r) { return r.kanban_status === 'done' || r.status === 'done'; }
+  function showReminder(r) {
+    let b = document.getElementById('remindBar');
+    if (!b) { b = document.createElement('div'); b.id = 'remindBar'; b.className = 'remind-bar'; document.body.appendChild(b); }
+    b.innerHTML = '<span>⏰ 该做了：' + WB.ui.escapeHtml(r.title) + (r.due_time ? '（' + r.due_time + '）' : '') + '</span><button class="remind-ok">知道了</button>';
+    b.style.display = 'flex';
+    b.querySelector('.remind-ok').onclick = () => { b.style.display = 'none'; };
+  }
+  async function checkReminders() {
+    try {
+      const rows = await WB.store.list('todos', ['title', 'note']);
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      for (const r of rows) {
+        if (r.kind === 'event' || isDoneR(r) || !r.due_date) continue;
+        let due = false;
+        if (r.due_date < todayStr) due = true;
+        else if (r.due_date === todayStr && r.due_time) {
+          const p = r.due_time.split(':').map(Number);
+          if (p[0] * 60 + p[1] <= nowMin) due = true;
+        }
+        if (due && !reminded.has(r.id)) { reminded.add(r.id); showReminder(r); }
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+  function startReminderLoop() { checkReminders(); setInterval(checkReminders, 60000); }
+
   function buildShell() {
     const sidebar = E.$('#sidebar');
     sidebar.innerHTML = `
@@ -91,6 +169,7 @@ window.WB = window.WB || {};
     }
     buildShell();
     switchTo('work');
+    startReminderLoop();
     E.$('#passModal').style.display = 'none';
   }
 
