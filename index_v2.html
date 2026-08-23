@@ -37,7 +37,7 @@
   --radius-sm:    12px;
   --radius-lg:    28px;
   --sidebar-w:    76px;
-  --topbar-h:     68px;
+  --topbar-h:     52px;
 }
 :root[data-theme="dark"] {
   --bg:           #0F1A14;
@@ -61,7 +61,7 @@
   --radius-sm:    12px;
   --radius-lg:    28px;
   --sidebar-w:    76px;
-  --topbar-h:     68px;
+  --topbar-h:     52px;
 }
 /* 深色模式：亮底元素（主按钮/激活标签/激活文件夹/计时模式/顶栏激活）统一深黑字，保证对比清晰 */
 :root[data-theme="dark"] .btn-primary,
@@ -137,7 +137,11 @@ a { color: inherit; text-decoration: none; }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
 
 /* ---------- 布局 ---------- */
-.app { padding-top: var(--topbar-h); padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); height: 100vh; display: grid; grid-template-columns: var(--sidebar-w) 1fr; width: 100%; overflow-x: clip; touch-action: pan-y; }
+.app { padding-top: var(--topbar-h); padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); height: 100vh; display: grid; grid-template-columns: var(--sidebar-w) 1fr; width: 100%; overflow-x: clip; }
+/* 仅 iOS Safari 锁定横向手势：苹果进页面左右不滑动、双指缩放仍可用；安卓/vivo 完全放开（能缩放、也不会左右晃） */
+@supports (-webkit-touch-callout: none) {
+  .app { touch-action: pan-y; }
+}
 
 /* 侧栏 */
 .sidebar {
@@ -327,8 +331,9 @@ a { color: inherit; text-decoration: none; }
 .folder-item.is-active { background: var(--ink); color: var(--yellow); }
 .folder-item.is-active .folder-count { color: var(--yellow); opacity: 0.7; }
 .folder-item .folder-icon { width: 18px; height: 18px; }
+.folder-item .folder-name { line-height: 1; }
 .folder-item .folder-count { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
-.folder-rename { margin-left: 2px; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 20px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
+.folder-rename { margin-left: 2px; width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink-muted); background: transparent; font-size: 18px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
 .folder-rename:hover { background: var(--card-2); color: var(--ink); }
 .folder-add { display:flex; gap: 6px; margin-top: 12px; }
 .folder-add input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
@@ -538,23 +543,27 @@ a { color: inherit; text-decoration: none; }
   .stat-num { font-size: 40px; }
   .notes-layout { grid-template-columns: 1fr; height: auto; }
   .notes-layout .notes-folder-list, .notes-layout .notes-list { max-height: 280px; }
-  .notes-layout .note-editor { height: 60vh; }
+  .notes-layout .note-editor { height: calc(100vh - var(--topbar-h)); }
   .note-editor-body { grid-template-columns: 1fr; }
   .note-editor-body textarea { border-right: none; border-bottom: 1px solid var(--line-soft); }
   .drawer { width: 100vw; }
   .pomo-bar-row { grid-template-columns: 1fr; }
   .pomodoro-grid { grid-template-columns: 1fr; }
   .todo-item .actions { opacity: 1; }
+  .todo-item { padding: 12px 14px; }
   .topbar { padding: 0 12px; padding-top: env(safe-area-inset-top, 0px); }
   .view-title { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .todo-item .meta { gap: 6px; font-size: 11px; overflow: hidden; }
-  /* 手机端备忘录看笔记更舒适 */
+  .todo-item .meta { gap: 6px; font-size: 11px; overflow: visible; flex-wrap: wrap; }
+  /* 手机端备忘录看笔记更舒适（仅手机，电脑端不动） */
   .hero-welcome .big { font-size: 22px; }
-  .note-editor-head { flex-wrap: wrap; }
-  .note-editor-head .icon-btn, .note-editor-head .note-back { width: 44px; height: 44px; }
+  .note-editor-head { flex-wrap: wrap; padding: 10px 14px; }
+  .note-editor-head .icon-btn, .note-editor-head .note-back { width: 40px; height: 40px; }
   .note-editor-head .icon-btn svg { width: 18px; height: 18px; }
-  .note-editor-head input.title { font-size: 22px; height: 44px; }
-  .note-editor-body textarea { font-size: 16px; line-height: 1.7; }
+  .note-editor-head input.title { font-size: 19px; height: 40px; }
+  .note-editor-body textarea { font-size: 16px; line-height: 1.7; padding: 14px; }
+  .note-editor-body .preview { padding: 14px; }
+  /* 底部状态行压缩，正文才能真正撑满 */
+  .note-editor > div:last-child { padding: 6px 14px !important; }
   .note-folder-select { font-size: 13px; max-width: 160px; }
   .note-folder-move { font-size: 13px; }
 }
@@ -949,7 +958,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.6";
+const APP_VERSION = "V1.0.7";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
