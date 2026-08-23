@@ -288,6 +288,7 @@ a { color: inherit; text-decoration: none; }
 .todo-item .title { font-size: 15px; font-weight: 600; flex: 1; }
 .todo-item .desc { font-size: 13px; color: var(--ink-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; display:-webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .todo-item .meta { display:flex; align-items:center; gap: 10px; margin-top: 8px; flex-wrap: wrap; font-size: 12px; color: var(--ink-muted); }
+.todo-item .meta > span { white-space: nowrap; }
 .todo-item .meta .tag { padding: 2px 8px; border-radius: 999px; background: var(--card-2); color: var(--ink-soft); font-weight: 600; }
 .todo-item .meta .due { display:inline-flex; align-items:center; gap: 4px; }
 .todo-item .meta .due.is-over { color: var(--bad); font-weight: 600; }
@@ -517,7 +518,9 @@ a { color: inherit; text-decoration: none; }
   .pomo-bar-row { grid-template-columns: 1fr; }
   .pomodoro-grid { grid-template-columns: 1fr; }
   .todo-item .actions { opacity: 1; }
-  .topbar { padding-left: 16px; }
+  .topbar { padding: 0 12px; }
+  .view-title { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .todo-item .meta { gap: 6px; font-size: 11px; }
 }
 
 /* ---------- small things ---------- */
@@ -883,7 +886,8 @@ a { color: inherit; text-decoration: none; }
 // 每次实质改动前必须先问老板确认，改完 x +1。例：累计 48 次改动 → V1.0.48。
 // 本版（V2 重设计初版发布）为 V1.0.0；旧线上 V1.0.38 已整体替换，版本号重新从 0 计数。
 // 改动记录：V1.0.1 = 顶栏品牌区两行化（"Workbench" 一行 + "糊涂蛋工作台" 一行），同步状态条 nowrap 单行（V1.0.0 升级）。
-const APP_VERSION = "V1.0.1";
+// 改动记录：V1.0.2 = 手机端体验优化：首页标题 760px 以下缩到 22px 单行省略号；待办时间格式今年内省去年份；时间 span 强制单行不内换；窄屏 meta 紧凑（gap 6 / 字号 11）；顶栏左右间距再压到 12px（V1.0.1 升级）。
+const APP_VERSION = "V1.0.2";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -901,7 +905,11 @@ const fmtDate = (t) => {
   const d = new Date(t);
   if (isNaN(+d)) return "";
   const p = n => String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  const yr = d.getFullYear();
+  const date = yr === new Date().getFullYear()
+    ? `${p(d.getMonth()+1)}-${p(d.getDate())}`
+    : `${yr}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  return `${date} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 const fmtDay = (t) => {
   if (!t) return "";
