@@ -602,7 +602,7 @@ a { color: inherit; text-decoration: none; }
   /* 手机端弹层（新建待办等）避开浏览器状态栏，标题不被压 */
   .modal-mask { padding: calc(env(safe-area-inset-top, 20px) + 20px) 16px 16px; align-items: flex-start; }
   /* 手机端登录页：只保留"同一口令=同一份数据"那句，其余说明隐藏 */
-  /* 2026-08-24: 登录说明文字精简，全部端只保留"同一口令=同一份数据"那句 */
+  .login-hint-extra { display: none; }
   /* 手机端新建标签"回车添加"输入框去掉圆边框（电脑端不动） */
   .tag-input-row { border: none; background: transparent; padding-left: 0; padding-right: 0; }
 }
@@ -967,6 +967,9 @@ a { color: inherit; text-decoration: none; }
     <button class="btn btn-ghost" id="btnCreateSpace" style="width:100%; justify-content:center; margin-top:10px; display:none">我是新用户 · 创建工作台</button>
     <div class="login-hint">
       <div class="login-hint-item login-hint-keep">同一口令 = 同一份数据，多设备共享。</div>
+      <div class="login-hint-item login-hint-extra">• 输入口令后先去云端核对，对口令才进对应的那份数据。</div>
+      <div class="login-hint-item login-hint-extra">• 口令是您私物，忘了谁都解不开。</div>
+      <div class="login-hint-item login-hint-extra">• 数据先用口令加密再传到云端，云端看不到明文。</div>
     </div>
     </div>
   </div>
@@ -1002,7 +1005,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.20";
+const APP_VERSION = "V1.0.19";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
