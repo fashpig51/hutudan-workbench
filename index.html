@@ -109,7 +109,7 @@ a { color: inherit; text-decoration: none; }
 .brand-stack { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
 .brand-main { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
 .brand-sub  { font-size:13px; color:var(--ink-muted); font-weight:500; }
-.home-brand { margin-bottom: 28px; }
+.home-brand { margin-bottom: 14px; }
 
 .topbar-right { display:flex; align-items:center; gap:8px; }
 .topbar-btn {
@@ -137,7 +137,7 @@ a { color: inherit; text-decoration: none; }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
 
 /* ---------- 布局 ---------- */
-.app { padding-top: var(--topbar-h); padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); height: 100vh; display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
+.app { padding-top: var(--topbar-h); padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); height: 100vh; display: grid; grid-template-columns: var(--sidebar-w) 1fr; width: 100%; overflow-x: clip; touch-action: pan-y; }
 
 /* 侧栏 */
 .sidebar {
@@ -145,7 +145,7 @@ a { color: inherit; text-decoration: none; }
   width: var(--sidebar-w);
   background: var(--bg);
   border-right: 1px solid var(--line-soft);
-  padding: 16px 0;
+  padding: 36px 0 16px;
   display:flex; flex-direction:column; align-items:center; gap:8px;
   z-index: 15;
 }
@@ -198,6 +198,7 @@ a { color: inherit; text-decoration: none; }
 .btn:hover { background: var(--card-2); }
 .btn-primary { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .btn-primary:hover { background: #000; }
+.btn-folders { display: none; }
 .btn-accent { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
 .btn-accent:hover { background: #FFD32D; }
 .btn-orange { background: var(--orange); color:#fff; border-color: var(--orange); }
@@ -327,7 +328,7 @@ a { color: inherit; text-decoration: none; }
 .folder-item.is-active .folder-count { color: var(--yellow); opacity: 0.7; }
 .folder-item .folder-icon { width: 18px; height: 18px; }
 .folder-item .folder-count { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
-.folder-rename { margin-left: 8px; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 20px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
+.folder-rename { margin-left: 2px; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); background: transparent; font-size: 20px; font-weight: 700; line-height: 1; flex-shrink: 0; transition: color 0.15s, background 0.15s; }
 .folder-rename:hover { background: var(--card-2); color: var(--ink); }
 .folder-add { display:flex; gap: 6px; margin-top: 12px; }
 .folder-add input { flex: 1; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line-soft); font-size: 13px; }
@@ -518,11 +519,16 @@ a { color: inherit; text-decoration: none; }
   .home-hero { grid-template-columns: 1fr 1fr; }
   .home-hero .hero-welcome { grid-column: 1 / -1; }
   .home-grid { grid-template-columns: 1fr; }
-  .notes-layout { grid-template-columns: 200px 1fr; }
+  .notes-layout { grid-template-columns: 1fr; }
+  .notes-layout .notes-folder-list { display: none; }
   .notes-layout .note-editor { display: none; }
+  .notes-layout.show-folders { grid-template-columns: 1fr; }
+  .notes-layout.show-folders .notes-list { display: none; }
+  .notes-layout.show-folders .notes-folder-list { display: flex; height: calc(100vh - var(--topbar-h) - 160px); }
   .notes-layout.show-editor { grid-template-columns: 1fr; }
   .notes-layout.show-editor .notes-folder-list, .notes-layout.show-editor .notes-list { display: none; }
   .notes-layout.show-editor .note-editor { display: flex; }
+  .btn-folders { display: inline-flex; }
 }
 @media (max-width: 760px) {
   :root { --sidebar-w: 64px; }
@@ -730,6 +736,7 @@ a { color: inherit; text-decoration: none; }
           <div class="view-sub" id="notesSub">0 篇笔记</div>
         </div>
         <div class="row">
+          <button class="btn btn-folders" id="btnToggleFolders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>文件夹</button>
           <button class="btn btn-primary" id="btnNewNote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建笔记</button>
         </div>
       </div>
@@ -942,7 +949,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.5";
+const APP_VERSION = "V1.0.6";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1246,11 +1253,12 @@ async function syncLoad() {
 /* ---------------------- 路由 ---------------------- */
 function go(tab, opts) {
   if (tab !== "notes" && state.select.noteId === "__new__") state.select.noteId = null;
+  else if (tab === "notes") { const nl = $("#notesLayout"); if (nl) { nl.classList.remove("show-editor"); nl.classList.remove("show-folders"); } }
   state.filter.tab = tab;
   $$(".view").forEach(v => v.classList.toggle("is-active", v.id === "view-" + tab));
   $$(".nav-btn").forEach(b => b.classList.toggle("is-active", b.dataset.go === tab));
   render();
-  if (tab === "notes" && state.select.noteId && window.innerWidth <= 1100) {
+  if (tab === "notes" && state.select.noteId && state.select.noteId !== "__new__" && window.innerWidth <= 1100) {
     $("#notesLayout").classList.add("show-editor");
   }
   if (opts && opts.scrollTop != null) { $(".main").scrollTop = opts.scrollTop; }
@@ -1601,9 +1609,9 @@ function renderFolders() {
   $("#folderList").innerHTML = items.map(f => `
     <div class="folder-item ${state.filter.noteFolder===f.id?'is-active':''}" data-fold="${f.id}">
       <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
-      <span>${escHtml(f.name)}</span>
-      <span class="folder-count">${counts[f.id]||0}</span>
+      <span class="folder-name">${escHtml(f.name)}</span>
       ${ (f.id!=="_all" && f.id!=="_pin") ? `<button class="folder-rename" data-rename="${f.id}" title="改名">›</button>` : `` }
+      <span class="folder-count">${counts[f.id]||0}</span>
     </div>
   `).join("") + `
     <div class="folder-add">
@@ -1815,6 +1823,11 @@ $("#btnNewNote").onclick = () => {
   setTimeout(() => { $("#noteTitle").focus(); }, 50);
 };
 $("#noteSearch").oninput = () => renderNotes();
+$("#btnToggleFolders").onclick = () => {
+  const nl = $("#notesLayout");
+  nl.classList.remove("show-editor");
+  nl.classList.toggle("show-folders");
+};
 
 /* 极简 Markdown 渲染（标题 / 列表 / 引用 / 代码 / 粗体 / 斜体 / 行内代码 / 链接） */
 function renderMarkdown(md) {
