@@ -712,6 +712,9 @@ window.WB = window.WB || {};
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // 提前建好云端客户端（不带口令、不碰数据），让用户盯着登录页发呆那几秒就默默连上，
+    // 点"进入"时直接复用，省掉"建客户端+首次握手"的延迟。密钥没填则自动走纯本地。
+    WB.store.preConnect(WB.config);
     // 启动图至少显示 0.4 秒，让过渡自然；最多 3 秒兜底
     setTimeout(() => { hideSplash(); showPassModal(); }, 400);
     setTimeout(hideSplash, 3000);

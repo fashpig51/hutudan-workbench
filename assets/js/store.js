@@ -20,13 +20,24 @@ WB.store = (function () {
     localStorage.setItem(cacheKey(table), JSON.stringify(rows));
   }
 
-  // 初始化：推导密钥与分区，连接云端（若已配置）
+  // 提前建客户端：页面一加载就跑（不等用户点"进入"），把"建客户端+首次握手"的开销
+  // 从点击路径里剔掉。此时还没口令，不推导 workspaceId、不碰任何用户数据，隐私无影响。
+  function preConnect(config) {
+    cfg = config || WB.config || {};
+    if (sb) return; // 已建过就不重建
+    if (cfg.supabaseUrl && cfg.supabaseAnonKey && typeof supabase !== 'undefined') {
+      try {
+        sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+      } catch (e) { sb = null; }
+    }
+  }
+
+  // 初始化：推导密钥与分区；客户端若已提前建好则复用，否则现建
   async function init(pass, config) {
     passphrase = pass;
     cfg = config || WB.config || {};
     workspaceId = await WB.crypto.makeWorkspaceId(pass);
-    sb = null;
-    if (cfg.supabaseUrl && cfg.supabaseAnonKey && typeof supabase !== 'undefined') {
+    if (!sb && cfg.supabaseUrl && cfg.supabaseAnonKey && typeof supabase !== 'undefined') {
       try {
         sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
       } catch (e) { sb = null; }
@@ -183,5 +194,5 @@ WB.store = (function () {
     return false;
   }
 
-  return { init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData };
+  return { preConnect, init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData };
 })();
