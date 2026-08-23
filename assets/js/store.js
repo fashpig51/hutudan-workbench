@@ -171,18 +171,14 @@ WB.store = (function () {
       if (loadCache(t).length > 0) return true;
     }
     // 2) 本地空才查云端（新设备/清缓存场景）
+    //    并行查 4 张表（Promise.all），避免串行 for 一张张等、累加延迟
     if (sb) {
-      for (const t of tables) {
-        try {
-          const { data, error } = await sb
-            .from(t)
-            .select('id')
-            .eq('workspace_id', workspaceId)
-            .eq('is_deleted', false)
-            .limit(1);
-          if (!error && data && data.length > 0) return true;
-        } catch (e) { /* 断网等，忽略，继续查别的表 */ }
-      }
+      try {
+        const results = await Promise.all(tables.map(t =>
+          sb.from(t).select('id').eq('workspace_id', workspaceId).eq('is_deleted', false).limit(1)
+        ));
+        return results.some(r => !r.error && r.data && r.data.length > 0);
+      } catch (e) { /* 断网等，忽略 */ }
     }
     return false;
   }

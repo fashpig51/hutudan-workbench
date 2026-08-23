@@ -183,17 +183,19 @@ window.WB = window.WB || {};
   // 校验通过后真正进入（init 已在外部完成）
   async function enterApp(pass, cloud) {
     E.setSync('wait', '连接中…');
-    if (cloud) {
-      E.setSync('on', '云端同步中');
-      await WB.store.heartbeat();
-      setTimeout(() => E.setSync('on', '已同步'), 800);
-    } else {
-      E.setSync('off', '纯本地模式');
-    }
     buildShell();
     switchTo('dashboard');
     startReminderLoop();
     E.$('#passModal').style.display = 'none';
+    // 心跳（给 Supabase 7天暂停加保险）放到进主页之后异步跑，不阻塞进入
+    if (cloud) {
+      E.setSync('on', '云端同步中');
+      WB.store.heartbeat().then(() => {
+        setTimeout(() => E.setSync('on', '已同步'), 300);
+      }).catch(() => {});
+    } else {
+      E.setSync('off', '纯本地模式');
+    }
   }
 
   function showPassModal() {
