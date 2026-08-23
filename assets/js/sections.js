@@ -178,7 +178,7 @@ WB.sections.work = function (root) {
       <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
       <button class="mini-btn" data-toggle="${r.id}">${isExp ? '收起' : (kids.length ? '子任务(' + kids.length + ')' : '加子步骤')}</button>
       <button class="mini-btn" data-focus="${r.id}">专注</button>
-      <button class="mini-btn" data-sched>排程</button>
+      <button class="mini-btn" data-sched="${r.id}">排程</button>
       <button class="del" data-id="${r.id}" title="删除">✕</button>
       ${kidHtml}
     </li>`);
@@ -231,6 +231,14 @@ WB.sections.work = function (root) {
     const ae = a.scheduled_end || '23:59', be = b.scheduled_end || '23:59';
     return a.scheduled_start < be && b.scheduled_start < ae;
   }
+  function endOf(t) {
+    if (t.scheduled_end) return t.scheduled_end;
+    // 没填结束时间：按开始+1小时算，但不超过 23:59
+    if (!t.scheduled_start) return '23:59';
+    const [h, m] = t.scheduled_start.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m + 60);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
   function renderSchedule(rows) {
     const el = E.$('#w-schedule', root);
     const dayTasks = rows.filter(r => r.kind === 'task' && !r.parent_id && r.scheduled_date === schedDate && r.scheduled_start);
@@ -240,19 +248,23 @@ WB.sections.work = function (root) {
     }
     let html = `<div class="sched-tool">
       <input id="w-schedDate" type="date" value="${schedDate}">
-      <span class="sched-hint ${conflicts.size ? 'warn' : ''}">${conflicts.size ? '⚠ 有时间段重叠' : '这天没冲突'}</span>
-    </div><div class="sched-rows">`;
+      <span class="sched-hint ${conflicts.size ? 'warn' : ''}">${conflicts.size ? '⚠ 有时间段重叠' : (dayTasks.length ? '这天没冲突' : '这天还没排任务')}</span>
+    </div>`;
+    if (dayTasks.length === 0) {
+      html += `<div class="empty" style="margin:18px 0">从下方选一条待办，填上开始/结束时间，再点“排到这天”。<br>只有“截止时间”的任务不会自动出现在这里。</div>`;
+    }
+    html += `<div class="sched-rows">`;
     for (let h = 6; h <= 23; h++) {
       const hh = String(h).padStart(2, '0') + ':00';
-      const blk = dayTasks.filter(t => (t.scheduled_start || '00:00') <= hh && (t.scheduled_end || '23:59') > hh.slice(0, 5));
+      const blk = dayTasks.filter(t => t.scheduled_start <= hh && endOf(t) > hh.slice(0, 5));
       html += `<div class="sched-row ${blk.length ? 'has' : ''}">
         <div class="sched-time">${hh}</div>
-        <div class="sched-slot">${blk.map(t => `<div class="sched-block ${conflicts.has(t.id) ? 'conflict' : ''}">${E.escapeHtml(t.title)} ${t.scheduled_start}-${t.scheduled_end || ''}</div>`).join('')}</div>
+        <div class="sched-slot">${blk.map(t => `<div class="sched-block ${conflicts.has(t.id) ? 'conflict' : ''}">${E.escapeHtml(t.title)}<br><small>${t.scheduled_start} - ${endOf(t)}</small></div>`).join('')}</div>
       </div>`;
     }
     html += `</div><div class="sched-assign">
       <select id="w-schedTask">${rows.filter(r => r.kind === 'task' && !r.parent_id && r.kanban_status !== 'done').map(r => `<option value="${r.id}">${E.escapeHtml(r.title)}</option>`).join('')}</select>
-      <input id="w-schedStart" type="time"><input id="w-schedEnd" type="time">
+      <input id="w-schedStart" type="time" placeholder="开始"><input id="w-schedEnd" type="time" placeholder="结束">
       <button id="w-schedAdd" class="btn-primary">排到这天</button>
     </div>`;
     el.innerHTML = html;
@@ -315,22 +327,35 @@ WB.sections.work = function (root) {
     renderList(dueMapCache[selectedDate] || []);
   }
 
+  let renderLock = false, renderQueued = false;
   async function render() {
-    allRows = (await WB.store.list('todos', ['title', 'note'])).map(norm);
-    dueMapCache = {};
-    allRows.forEach(t => { if (t.due_date) { (dueMapCache[t.due_date] = dueMapCache[t.due_date] || []).push(t); } });
-    const parentSel = E.$('#w-parent', root);
-    if (parentSel) {
-      const cur = parentSel.value;
-      parentSel.innerHTML = '<option value="">无（独立任务）</option>' + allRows.filter(r => r.kind === 'task' && !r.parent_id).map(r => `<option value="${r.id}">${E.escapeHtml(r.title)}</option>`).join('');
-      parentSel.value = cur;
+    if (renderLock) { renderQueued = true; return; }
+    renderLock = true;
+    try {
+      if (!root.isConnected) return;
+      allRows = (await WB.store.list('todos', ['title', 'note'])).map(norm);
+      dueMapCache = {};
+      allRows.forEach(t => { if (t.due_date) { (dueMapCache[t.due_date] = dueMapCache[t.due_date] || []).push(t); } });
+      const parentSel = E.$('#w-parent', root);
+      if (parentSel) {
+        const cur = parentSel.value;
+        parentSel.innerHTML = '<option value="">无（独立任务）</option>' + allRows.filter(r => r.kind === 'task' && !r.parent_id).map(r => `<option value="${r.id}">${E.escapeHtml(r.title)}</option>`).join('');
+        parentSel.value = cur;
+      }
+      renderTagChips();
+      if (view === 'calendar') { renderCalendar(dueMapCache); renderDayList(); }
+      else if (view === 'kanban') { renderKanban(allRows); }
+      else if (view === 'schedule') { renderSchedule(allRows); }
+      else if (view === 'summary') { renderSummary(allRows); }
+      else { renderList(filteredRows()); }
+    } catch (err) {
+      console.error('work render error', err);
+      const ul = E.$('#w-list', root);
+      if (ul) { ul.innerHTML = ''; ul.appendChild(E.el('<li class="empty">加载失败，刷新试试：' + E.escapeHtml(err.message || '未知错误') + '</li>')); }
+    } finally {
+      renderLock = false;
+      if (renderQueued) { renderQueued = false; setTimeout(render, 0); }
     }
-    renderTagChips();
-    if (view === 'calendar') { renderCalendar(dueMapCache); renderDayList(); }
-    else if (view === 'kanban') { renderKanban(allRows); }
-    else if (view === 'schedule') { renderSchedule(allRows); }
-    else if (view === 'summary') { renderSummary(allRows); }
-    else { renderList(filteredRows()); }
   }
 
   function setView(v) {
@@ -348,6 +373,7 @@ WB.sections.work = function (root) {
 
   // ---- 添加 ----
   E.$('#w-add', root).addEventListener('click', async () => {
+    const btn = E.$('#w-add', root);
     let title = E.$('#w-title', root).value.trim();
     if (!title) { E.toast('先写点什么'); return; }
     const smart = parseSmart(title);
@@ -355,20 +381,22 @@ WB.sections.work = function (root) {
     const time = E.$('#w-duetime', root).value || smart.time || null;
     const finalTitle = (smart.due || smart.time) ? smart.title : title;
     const parentId = E.$('#w-parent', root).value || '';
-    await WB.store.upsert('todos', ['title', 'note'], {
-      title: finalTitle,
-      priority: E.$('#w-priority', root).value,
-      due_date: due,
-      due_time: time,
-      tags: E.$('#w-tags', root).value.trim(),
-      kind: E.$('#w-kind', root).value,
-      kanban_status: 'todo',
-      status: 'active',
-      parent_id: parentId
-    });
-    E.$('#w-title', root).value = '';
-    E.$('#w-due', root).value = ''; E.$('#w-duetime', root).value = ''; E.$('#w-tags', root).value = '';
-    render();
+    btn.disabled = true;
+    try {
+      await WB.store.upsert('todos', ['title', 'note'], {
+        title: finalTitle,
+        priority: E.$('#w-priority', root).value,
+        due_date: due,
+        due_time: time,
+        tags: E.$('#w-tags', root).value.trim(),
+        kind: E.$('#w-kind', root).value,
+        kanban_status: 'todo',
+        status: 'active',
+        parent_id: parentId
+      });
+      E.$('#w-title', root).value = '';
+      E.$('#w-due', root).value = ''; E.$('#w-duetime', root).value = ''; E.$('#w-tags', root).value = '';
+    } finally { btn.disabled = false; render(); }
   });
 
   // 顶部筛选 / 标签 / 视图
@@ -398,24 +426,36 @@ WB.sections.work = function (root) {
       if (r && WB.pomodoro) WB.pomodoro.start(r.id, r.title);
       return;
     }
-    if (e.target.matches('[data-sched]')) { schedDate = todayLocal(); setView('schedule'); return; }
+    if (e.target.matches('[data-sched]')) {
+      const r = allRows.find(x => x.id === e.target.dataset.sched);
+      schedDate = (r && r.due_date) ? r.due_date : todayLocal();
+      setView('schedule');
+      return;
+    }
     if (e.target.matches('.sub-add-btn')) {
       const pid = e.target.dataset.subAdd;
       const inp = E.$('#sub-' + pid, root);
+      const btn = e.target;
       const v = inp.value.trim(); if (!v) return;
-      await WB.store.upsert('todos', ['title', 'note'], { title: v, priority: 'mid', kind: 'task', kanban_status: 'todo', status: 'active', parent_id: pid });
-      render(); return;
+      inp.value = ''; inp.disabled = true; btn.disabled = true;
+      try {
+        await WB.store.upsert('todos', ['title', 'note'], { title: v, priority: 'mid', kind: 'task', kanban_status: 'todo', status: 'active', parent_id: pid });
+      } finally { render(); }
+      return;
     }
     if (e.target.matches('#calPrev')) { cur.m--; if (cur.m < 0) { cur.m = 11; cur.y--; } renderCalendar(dueMapCache); }
     if (e.target.matches('#calNext')) { cur.m++; if (cur.m > 11) { cur.m = 0; cur.y++; } renderCalendar(dueMapCache); }
-    if (e.target.matches('.cal-cell') && e.target.dataset.date) {
-      selectedDate = e.target.dataset.date;
+    const cell = e.target.closest('.cal-cell');
+    if (cell && cell.dataset.date) {
+      selectedDate = cell.dataset.date;
       E.$$('.cal-cell', root).forEach(c => c.classList.toggle('sel', c.dataset.date === selectedDate));
       renderDayList();
     }
     if (e.target.matches('#w-schedAdd')) {
       const id = E.$('#w-schedTask', root).value;
       const s = E.$('#w-schedStart', root).value, en = E.$('#w-schedEnd', root).value;
+      if (!s) { E.toast('先选开始时间'); return; }
+      if (en && en <= s) { E.toast('结束时间要比开始时间晚'); return; }
       const r = allRows.find(x => x.id === id); if (!r) return;
       await WB.store.upsert('todos', ['title', 'note'], Object.assign({}, r, { scheduled_date: schedDate, scheduled_start: s, scheduled_end: en }));
       render();
@@ -470,9 +510,11 @@ WB.sections.work = function (root) {
   // 子步骤回车添加
   root.addEventListener('keydown', (e) => {
     if (e.target.matches('.sub-add input') && e.key === 'Enter') {
-      const pid = e.target.id.replace('sub-', '');
-      const v = e.target.value.trim(); if (!v) return;
-      WB.store.upsert('todos', ['title', 'note'], { title: v, priority: 'mid', kind: 'task', kanban_status: 'todo', status: 'active', parent_id: pid }).then(render);
+      const inp = e.target;
+      const pid = inp.id.replace('sub-', '');
+      const v = inp.value.trim(); if (!v) return;
+      inp.value = ''; inp.disabled = true;
+      WB.store.upsert('todos', ['title', 'note'], { title: v, priority: 'mid', kind: 'task', kanban_status: 'todo', status: 'active', parent_id: pid }).then(render, render);
     }
   });
 

@@ -244,7 +244,10 @@ body{
 .sum-lbl{font-size:12px;color:var(--muted);margin-top:4px}
 
 /* 提醒横幅 / 番茄钟条 */
-.remind-bar{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:14px;background:rgba(20,28,40,.96);border:1px solid var(--mint);color:var(--text);padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;max-width:90vw}
+.remind-bar{position:fixed;top:calc(18px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:14px;background:rgba(20,28,40,.96);border:1px solid var(--mint);color:var(--text);padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;max-width:90vw}
+.remind-bar .remind-body{display:flex;flex-direction:column;gap:2px}
+.remind-bar .remind-title{font-weight:600}
+.remind-bar .remind-time{color:var(--muted);font-size:12px}
 .remind-bar button{background:var(--mint);border:none;color:#04201b;font-weight:700;padding:6px 14px;border-radius:9px;cursor:pointer;flex:none}
 .pomo-bar{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:14px;background:rgba(20,28,40,.96);border:1px solid var(--glass-bd);color:var(--text);padding:12px 18px;border-radius:14px;box-shadow:var(--shadow);font-size:14px}
 .pomo-bar .pomo-time{font-size:18px;font-weight:800;color:var(--mint);font-variant-numeric:tabular-nums}
@@ -252,14 +255,17 @@ body{
 
 /* 手机端适配（阶段一新增块） */
 @media (max-width:720px){
-  .calendar{padding:10px;max-width:100%}
-  .cal-grid{gap:4px}
-  .cal-cell{min-height:36px;font-size:12px;border-radius:8px}
-  .cal-num{font-size:12px}
+  .calendar{padding:8px;max-width:100%;border-radius:12px}
+  .cal-grid{gap:3px}
+  .cal-dow{font-size:10px;padding:2px 0}
+  .cal-cell{min-height:32px;font-size:11px;border-radius:6px;padding:2px}
+  .cal-num{font-size:11px}
+  .cal-dot{bottom:4px;width:4px;height:4px}
   .cal-evt{display:none}
   .kanban{grid-template-columns:1fr}
   .sched-assign{flex-direction:column;align-items:stretch}
   .sched-assign select,.sched-assign input{width:100%}
   .pomo-bar{bottom:76px}
-  .remind-bar{flex-direction:row;font-size:13px}
+  .remind-bar{flex-direction:column;align-items:stretch;text-align:center;gap:10px;padding:14px 16px;top:calc(10px + env(safe-area-inset-top, 0px))}
+  .remind-bar button{width:100%;padding:9px 14px}
 }

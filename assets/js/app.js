@@ -74,7 +74,7 @@ window.WB = window.WB || {};
   function showReminder(r) {
     let b = document.getElementById('remindBar');
     if (!b) { b = document.createElement('div'); b.id = 'remindBar'; b.className = 'remind-bar'; document.body.appendChild(b); }
-    b.innerHTML = '<span>⏰ 该做了：' + WB.ui.escapeHtml(r.title) + (r.due_time ? '（' + r.due_time + '）' : '') + '</span><button class="remind-ok">知道了</button>';
+    b.innerHTML = '<div class="remind-body"><div class="remind-title">⏰ 该做了：' + WB.ui.escapeHtml(r.title) + '</div>' + (r.due_time ? '<div class="remind-time">' + r.due_time + '</div>' : '') + '</div><button class="remind-ok">知道了</button>';
     b.style.display = 'flex';
     b.querySelector('.remind-ok').onclick = () => { b.style.display = 'none'; };
   }
