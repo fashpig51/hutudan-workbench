@@ -66,7 +66,7 @@
 
 /* ---------- 基础 ---------- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin:0; padding:0; height:100%; overscroll-behavior-x: none; }
+html, body { margin:0; padding:0; height:100%; overscroll-behavior-x: none; overflow-x: clip; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
@@ -103,6 +103,7 @@ a { color: inherit; text-decoration: none; }
 .brand-stack { display:flex; flex-direction:column; gap:2px; line-height:1.1; }
 .brand-main { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
 .brand-sub  { font-size:13px; color:var(--ink-muted); font-weight:500; }
+.home-brand { margin-bottom: 14px; }
 
 .topbar-right { display:flex; align-items:center; gap:8px; }
 .topbar-btn {
@@ -226,14 +227,15 @@ a { color: inherit; text-decoration: none; }
   display: flex; flex-direction: column; justify-content: space-between;
 }
 .hero-welcome .hi { font-size: 14px; font-weight: 600; opacity: 0.7; }
-.hero-welcome .big { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; margin-top: 6px; }
+.hero-welcome .big { font-size: 26px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; margin-top: 6px; }
 .hero-welcome .meta { font-size: 14px; margin-top: 12px; opacity: 0.8; }
+.hero-welcome, .hero-welcome .hi, .hero-welcome .big, .hero-welcome .meta { color: #1B1B1F; }
 .hero-decor { position: absolute; right: -40px; bottom: -40px; width: 240px; height: 240px; border-radius: 50%; background: rgba(0,0,0,0.12); }
 .hero-decor-2 { position: absolute; right: 60px; bottom: 30px; width: 110px; height: 110px; border-radius: 50%; background: rgba(0,0,0,0.18); }
 
 .stat-card { background: var(--card); border-radius: var(--radius); padding: 22px; border: 1px solid var(--line-soft); display:flex; flex-direction:column; justify-content:space-between; min-height: 200px; }
 .stat-label { font-size: 13px; color: var(--ink-muted); font-weight: 500; }
-.stat-num { font-size: 56px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-top: 8px; }
+.stat-num { font-size: 44px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-top: 8px; }
 .stat-num small { font-size: 16px; color: var(--ink-muted); font-weight: 600; margin-left: 4px; }
 .stat-foot { display:flex; align-items:center; gap:8px; font-size:13px; color: var(--ink-soft); margin-top: 12px; }
 .stat-icon { width:30px; height:30px; border-radius:9px; background: var(--yellow); color: var(--ink); display:grid; place-items:center; }
@@ -413,6 +415,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--bg);
   z-index: 40;
   display: flex; flex-direction: column;
+  overflow-x: hidden;
   transition: right 0.3s cubic-bezier(0.16,1,0.3,1);
   border-left: 1px solid var(--line);
 }
@@ -526,7 +529,16 @@ a { color: inherit; text-decoration: none; }
   .todo-item .actions { opacity: 1; }
   .topbar { padding: 0 12px; padding-top: env(safe-area-inset-top, 0px); }
   .view-title { font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .todo-item .meta { gap: 6px; font-size: 11px; }
+  .todo-item .meta { gap: 6px; font-size: 11px; overflow: hidden; }
+  /* 手机端备忘录看笔记更舒适 */
+  .hero-welcome .big { font-size: 22px; }
+  .note-editor-head { flex-wrap: wrap; }
+  .note-editor-head .icon-btn, .note-editor-head .note-back { width: 44px; height: 44px; }
+  .note-editor-head .icon-btn svg { width: 18px; height: 18px; }
+  .note-editor-head input.title { font-size: 22px; height: 44px; }
+  .note-editor-body textarea { font-size: 16px; line-height: 1.7; }
+  .note-folder-select { font-size: 13px; max-width: 160px; }
+  .note-folder-move { font-size: 13px; }
 }
 
 /* ---------- small things ---------- */
@@ -561,15 +573,7 @@ a { color: inherit; text-decoration: none; }
 
 <!-- ============= 顶栏 ============= -->
 <div class="topbar">
-  <div class="brand">
-    <div class="brand-mark">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 3h14l-1 13H6L5 3Z"/><path d="M9 21h6"/><path d="M8 8h8"/></svg>
-    </div>
-    <div class="brand-stack">
-      <div class="brand-main">Workbench</div>
-      <div class="brand-sub">糊涂蛋工作台</div>
-    </div>
-  </div>
+  <div class="topbar-left"></div>
   <div class="topbar-right">
     <div class="sync-pill" id="syncPill"><span class="sync-dot"></span><span id="syncLabel">已同步</span></div>
     <button class="topbar-btn" id="btnTheme" title="切换明暗">
@@ -606,6 +610,17 @@ a { color: inherit; text-decoration: none; }
 
     <!-- 首页 -->
     <section class="view is-active" id="view-home">
+      <div class="home-brand">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 3h14l-1 13H6L5 3Z"/><path d="M9 21h6"/><path d="M8 8h8"/></svg>
+          </div>
+          <div class="brand-stack">
+            <div class="brand-main">Workbench</div>
+            <div class="brand-sub">糊涂蛋工作台</div>
+          </div>
+        </div>
+      </div>
       <div class="view-head">
         <div>
           <div class="view-title" id="homeGreet">早上好</div>
@@ -719,7 +734,8 @@ a { color: inherit; text-decoration: none; }
           </div>
           <div id="noteEditorBody" class="hidden" style="display:flex; flex-direction: column; flex: 1; height:100%; overflow:hidden;">
             <div class="note-editor-head">
-              <input class="title" id="noteTitle" placeholder="标题" />
+              <button class="icon-btn note-back" id="btnNoteBack" title="返回笔记列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <input class="title" id="noteTitle" placeholder="给这篇起个名…" />
               <button class="icon-btn" id="btnPinNote" title="置顶"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-2 7h-2z"/><path d="M7 10h10l-2 7H9z"/></svg></button>
               <button class="icon-btn" id="btnLockNote" title="加密"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
               <button class="icon-btn" id="btnExportNote" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>
@@ -903,9 +919,18 @@ a { color: inherit; text-decoration: none; }
 //   5) 待办优先级/重复：点选改用 $$ 取全部，修多选 bug；
 //   6) 首页"N 件事在等您"字号 36→22；
 //   7) 苹果端顶栏：移动端 .topbar 补回 safe-area-inset-top，不再被刘海挡；
-//   8) 登录：首次也只输一次口令（去掉第二次确认框）。
-// （V1.0.2 升级）
-const APP_VERSION = "V1.0.3";
+//   8) 登录：口令回退为"首次输 2 次（确认框），之后输 1 次"。
+// 改动记录：V1.0.4 = 八项手机端优化与回退：
+//   1) 备忘录：编辑器头部加"← 返回"按钮，手机端回到列表；
+//   2) 手机端看笔记更舒适：头部图标按钮 44×44、标题 22px 醒目、文字区 16px/行高1.7、分类下拉放大；
+//   3) 品牌区从顶栏挪到首页内容区第一行（"晚上好"上方），手机/电脑均两行；顶栏只留同步+主题；
+//   4) 深色模式黄底 hero 卡片文字强制深色（#1B1B1F），不再白字看不清；
+//   5) 苹果横向滑动再压：html/body overflow-x:clip + 抽屉 overflow-x:hidden + 待办 meta 裁溢出；
+//   6) 笔记标题 placeholder 改"给这篇起个名…"更显眼（分类沿用上轮"移动到文件夹"下拉）；
+//   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
+//   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
+// （V1.0.3 升级）
+const APP_VERSION = "V1.0.4";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1682,6 +1707,13 @@ $("#btnPinNote").onclick = () => {
   $("#btnPinNote").classList.toggle("is-on", !!n.pinned);
   saveLocal(); scheduleSync(); renderNotes();
 };
+$("#btnNoteBack").onclick = () => {
+  state.select.noteId = null;
+  const layout = $("#notesLayout");
+  if (layout) layout.classList.remove("show-editor");
+  renderNoteEditor();
+  renderNotes();
+};
 $("#btnLockNote").onclick = () => {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
   if (!n.locked) {
@@ -2043,9 +2075,9 @@ async function bootLogin() {
     $("#loginPass2").style.display = "none";
   } else {
     $("#loginPass").placeholder = "设一个新口令 (≥4 位)";
-    $("#loginPass2").style.display = "none";
+    $("#loginPass2").style.display = "block";
     $("#loginTitle").textContent = "创建工作台";
-    $("#loginSub").textContent  = "首次设定口令后，云端的数据只能被相同口令解开。";
+    $("#loginSub").textContent  = "首次设定口令后，云端的数据只能被相同口令解开。请再输一次确认。";
   }
   $("#loginHost").dataset.step = "input";
 }
