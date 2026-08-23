@@ -193,17 +193,20 @@ body.light{
 
 /* 口令弹窗 */
 .modal-mask{position:fixed;inset:0;background:rgba(44,62,80,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:50}
-.modal-box{background:var(--bg2);border:1px solid var(--glass-bd);border-radius:20px;padding:34px;width:360px;box-shadow:var(--shadow);text-align:center}
-.modal-box h2{font-size:20px;margin-bottom:8px;color:var(--text)}
-.modal-box p{color:var(--muted);font-size:13px;margin-bottom:20px;line-height:1.6}
-.modal-box input{width:100%;background:var(--bg);border:1px solid var(--glass-bd);color:var(--text);padding:13px 16px;border-radius:12px;outline:none;font-size:15px;margin-bottom:16px;text-align:center}
-.modal-box button{width:100%;background:var(--primary);border:none;color:#fff;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;font-size:15px}
+.modal-box{background:var(--bg2);border:1px solid var(--glass-bd);border-radius:18px;padding:26px 24px;width:320px;box-shadow:0 4px 22px rgba(0,0,0,.38);text-align:center}
+.modal-box h2{font-size:18px;margin-bottom:10px;color:var(--text);font-weight:700;letter-spacing:.5px}
+.modal-box p{color:var(--muted);font-size:12.5px;margin-bottom:18px;line-height:1.55}
+.modal-box input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--glass-bd);color:var(--text);padding:11px 4px;border-radius:0;outline:none;font-size:15px;margin-bottom:18px;text-align:center;transition:border-color .18s}
+.modal-box input:focus{border-bottom-color:var(--primary)}
+.modal-box input::placeholder{color:var(--gray)}
+.modal-box button{width:100%;background:var(--primary);border:none;color:#fff;font-weight:700;padding:12px;border-radius:10px;cursor:pointer;font-size:15px;transition:.15s}
 .modal-box button:hover{background:var(--primary-d)}
+.modal-box button:active{transform:translateY(1px)}
 /* 口令不符时的提示区（默认隐藏） */
-.pass-warn{margin-top:18px;border-top:1px dashed var(--glass-bd);padding-top:16px}
-.pass-warn-text{color:var(--danger);font-size:13px;margin:0 0 12px;line-height:1.5}
-.pass-warn #passForce{margin-bottom:10px}
-.pass-warn #passRetry{background:transparent;border:1px solid var(--glass-bd);color:var(--muted);font-weight:600}
+.pass-warn{margin-top:16px;border-top:1px dashed var(--glass-bd);padding-top:14px}
+.pass-warn-text{color:var(--danger);font-size:12.5px;margin:0 0 10px;line-height:1.5}
+.pass-warn #passForce{margin-bottom:8px;font-size:14px;padding:10px}
+.pass-warn #passRetry{background:transparent;border:1px solid var(--glass-bd);color:var(--muted);font-weight:600;font-size:13px;padding:10px}
 
 /* 标签管理弹窗 */
 .tag-mgr{width:380px;text-align:left}
