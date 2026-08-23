@@ -147,8 +147,10 @@ WB.sections.work = function (root) {
           <div class="item-title">${E.escapeHtml(r.title)}</div>
           <div class="item-sub">${countdown(r.due_date)}</div>
         </div>
+      <div class="item-actions">
         <span class="tag tag-mid">纪念日</span>
         <button class="del" data-id="${r.id}" title="删除">✕</button>
+      </div>
       </li>`);
     }
     const kids = childrenOf(r.id);
@@ -175,11 +177,13 @@ WB.sections.work = function (root) {
         </div>
         ${kids.length ? `<div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${doneK}/${kids.length} ${pct}%</span></div>` : ''}
       </div>
-      <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
-      <button class="mini-btn" data-toggle="${r.id}">${isExp ? '收起' : (kids.length ? '子任务(' + kids.length + ')' : '加子步骤')}</button>
-      <button class="mini-btn" data-focus="${r.id}">专注</button>
-      <button class="mini-btn" data-sched="${r.id}">排程</button>
-      <button class="del" data-id="${r.id}" title="删除">✕</button>
+      <div class="item-actions">
+        <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
+        <button class="mini-btn" data-toggle="${r.id}">${isExp ? '收起' : (kids.length ? '子任务(' + kids.length + ')' : '加子步骤')}</button>
+        <button class="mini-btn" data-focus="${r.id}">专注</button>
+        <button class="mini-btn" data-sched="${r.id}">排程</button>
+        <button class="del" data-id="${r.id}" title="删除">✕</button>
+      </div>
       ${kidHtml}
     </li>`);
   }
@@ -332,7 +336,7 @@ WB.sections.work = function (root) {
     if (renderLock) { renderQueued = true; return; }
     renderLock = true;
     try {
-      if (!root.isConnected) return;
+      if (!root.isConnected) { setTimeout(render, 50); return; }
       allRows = (await WB.store.list('todos', ['title', 'note'])).map(norm);
       dueMapCache = {};
       allRows.forEach(t => { if (t.due_date) { (dueMapCache[t.due_date] = dueMapCache[t.due_date] || []).push(t); } });
@@ -523,161 +527,552 @@ WB.sections.work = function (root) {
   render();
 };
 
-// ---------- 学习：笔记 + 书单 ----------
+// ---------- 学习：笔记 + 书单 + 关系图谱 + 白板 ----------
 WB.sections.study = function (root) {
   const E = WB.ui;
+  let view = 'notes';
+  let noteFilter = '', bookFilter = '', catFilter = '';
+  let allNotes = [], allBooks = [];
+
+  function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
   root.innerHTML = `
     <div class="section-head"><h2>学习</h2></div>
-    <div class="sub-block">
-      <h3>笔记</h3>
+    <div class="view-switch" style="margin-bottom:14px">
+      <button class="chip active" data-sv="notes">笔记</button>
+      <button class="chip" data-sv="books">书单</button>
+      <button class="chip" data-sv="graph">关系图谱</button>
+      <button class="chip" data-sv="board">白板画布</button>
+    </div>
+    <div id="s-notes" class="s-panel"></div>
+    <div id="s-books" class="s-panel" style="display:none"></div>
+    <div id="s-graph" class="s-panel" style="display:none"></div>
+    <div id="s-board" class="s-panel" style="display:none"></div>`;
+
+  // ---------- 笔记面板 ----------
+  function renderNotesPanel() {
+    const el = E.$('#s-notes', root);
+    el.innerHTML = `
+      <div class="tool-row" style="flex-wrap:wrap;gap:8px">
+        <input id="n-search" placeholder="搜索笔记" value="${E.escapeHtml(noteFilter)}">
+        <select id="n-cat"><option value="">全部分类</option><option value="灵感">灵感</option><option value="学习">学习</option><option value="工作">工作</option><option value="生活">生活</option></select>
+        <select id="n-template"><option value="">无模板</option><option value="daily">每日笔记</option><option value="meeting">会议记录</option><option value="reading">读书笔记</option></select>
+        <button id="n-daily" class="btn-ghost">今日每日笔记</button>
+        ${isAndroid() ? '<button id="n-voice" class="btn-ghost">🎤 语音速记</button>' : ''}
+      </div>
       <div class="add-row">
         <input id="n-title" placeholder="笔记标题" maxlength="120">
+        <input id="n-tags" placeholder="标签，逗号隔开" maxlength="80">
         <button id="n-add" class="btn-primary">新建</button>
       </div>
-      <ul id="n-list" class="list"></ul>
-    </div>
-    <div class="sub-block">
-      <h3>书单 / 课程</h3>
+      <ul id="n-list" class="list"></ul>`;
+    E.$('#n-search', el).addEventListener('input', (e) => { noteFilter = e.target.value.trim().toLowerCase(); renderNotesList(); });
+    E.$('#n-cat', el).addEventListener('change', () => { catFilter = E.$('#n-cat', el).value; renderNotesList(); });
+    E.$('#n-add', el).addEventListener('click', async () => {
+      const title = E.$('#n-title', el).value.trim(); if (!title) { E.toast('先写标题'); return; }
+      const tpl = E.$('#n-template', el).value;
+      let content = '', category = '', daily = '';
+      if (tpl === 'daily') { content = '## 今日三件事\n\n## 灵感\n\n## 复盘'; category = '生活'; daily = todayLocal(); }
+      else if (tpl === 'meeting') { content = '## 议题\n\n## 结论\n\n## 待办'; category = '工作'; }
+      else if (tpl === 'reading') { content = '## 书名\n\n## 金句\n\n## 感想'; category = '学习'; }
+      await WB.store.upsert('notes', ['title', 'content'], { title, content, tags: E.$('#n-tags', el).value.trim(), category, daily_date: daily, is_daily: !!daily });
+      E.$('#n-title', el).value = ''; E.$('#n-tags', el).value = '';
+      renderNotesList();
+    });
+    E.$('#n-daily', el).addEventListener('click', async () => {
+      const d = todayLocal();
+      const rows = await WB.store.list('notes', ['title', 'content']);
+      const exists = rows.find(r => r.is_daily && r.daily_date === d);
+      if (exists) { openNoteEditor(exists); }
+      else { await WB.store.upsert('notes', ['title', 'content'], { title: d + ' 每日笔记', content: '## 今日三件事\n\n## 灵感\n\n## 复盘', is_daily: true, daily_date: d, category: '生活' }); renderNotesList(); }
+    });
+    const voiceBtn = E.$('#n-voice', el);
+    if (voiceBtn) voiceBtn.addEventListener('click', () => startVoiceNote(el));
+    renderNotesList();
+  }
+  async function renderNotesList() {
+    const ul = E.$('#n-list', root); if (!ul) return;
+    allNotes = await WB.store.list('notes', ['title', 'content']);
+    allNotes.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    let rows = allNotes.filter(r => !r.is_deleted);
+    if (noteFilter) rows = rows.filter(r => (r.title + ' ' + (r.content || '')).toLowerCase().includes(noteFilter));
+    if (catFilter) rows = rows.filter(r => r.category === catFilter);
+    ul.innerHTML = '';
+    if (!rows.length) { ul.appendChild(E.el('<li class="empty">还没有笔记</li>')); return; }
+    rows.forEach(r => {
+      const tags = (r.tags || '').split(',').filter(Boolean).map(t => `<span class="mini-tag">${E.escapeHtml(t)}</span>`).join('');
+      const li = E.el(`
+        <li class="item" data-id="${r.id}">
+          <div class="item-main">
+            <div class="item-title">${E.escapeHtml(r.title)} ${r.is_daily ? '<span class="mini-tag">每日</span>' : ''} ${tags}</div>
+            ${r.content ? `<div class="item-sub">${E.escapeHtml(r.content.slice(0, 80))}${r.content.length > 80 ? '…' : ''}</div>` : ''}
+          </div>
+          <div class="item-actions">
+            <button class="mini-btn" data-edit="${r.id}">编辑</button>
+            <button class="del" data-id="${r.id}" title="删除">✕</button>
+          </div>
+        </li>`);
+      ul.appendChild(li);
+    });
+  }
+  function openNoteEditor(r) {
+    const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `
+      <div class="modal-box wide">
+        <h3>编辑笔记</h3>
+        <input id="ne-title" value="${E.escapeHtml(r.title)}" placeholder="标题">
+        <input id="ne-tags" value="${E.escapeHtml(r.tags || '')}" placeholder="标签，逗号隔开">
+        <input id="ne-links" value="${E.escapeHtml(r.links || '')}" placeholder="双向链接：关联笔记 id，逗号隔开">
+        <textarea id="ne-content" placeholder="内容（支持换行分块）">${E.escapeHtml(r.content || '')}</textarea>
+        <div class="modal-row">
+          <label><input type="file" id="ne-file" style="display:none"><span class="btn-ghost">📎 附件</span></label>
+          <span id="ne-attachName" class="muted">${r.attachments ? '已有 ' + JSON.parse(r.attachments).length + ' 个附件' : '无附件'}</span>
+        </div>
+        <textarea id="ne-summary" placeholder="渐进式总结 / 重点折叠">${E.escapeHtml(r.summary || '')}</textarea>
+        <div class="modal-actions">
+          <button id="ne-save" class="btn-primary">保存</button>
+          <button id="ne-cancel" class="btn-ghost">取消</button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+    let attachments = r.attachments ? JSON.parse(r.attachments) : [];
+    E.$('#ne-file', m).addEventListener('change', async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const data = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+      attachments.push({ name: file.name, data });
+      E.$('#ne-attachName', m).textContent = '已有 ' + attachments.length + ' 个附件';
+    });
+    E.$('#ne-cancel', m).addEventListener('click', () => m.remove());
+    E.$('#ne-save', m).addEventListener('click', async () => {
+      await WB.store.upsert('notes', ['title', 'content'], Object.assign({}, r, {
+        title: E.$('#ne-title', m).value,
+        content: E.$('#ne-content', m).value,
+        tags: E.$('#ne-tags', m).value,
+        links: E.$('#ne-links', m).value,
+        attachments: JSON.stringify(attachments),
+        summary: E.$('#ne-summary', m).value,
+        blocks: JSON.stringify((E.$('#ne-content', m).value || '').split('\n\n').filter(Boolean).map((b, i) => ({ id: i, text: b })))
+      }));
+      m.remove(); renderNotesList();
+    });
+  }
+  function isAndroid() { return /android/i.test(navigator.userAgent); }
+  function startVoiceNote(el) {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { E.toast('当前浏览器不支持语音'); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR(); rec.lang = 'zh-CN'; rec.continuous = false;
+    rec.onresult = async (e) => {
+      const txt = e.results[0][0].transcript;
+      await WB.store.upsert('notes', ['title', 'content'], { title: '语音速记 ' + todayLocal(), content: txt, voice_url: txt, tags: '语音' });
+      E.toast('语音已保存'); renderNotesList();
+    };
+    rec.start(); E.toast('请说话…');
+  }
+
+  // ---------- 书单面板 ----------
+  function renderBooksPanel() {
+    const el = E.$('#s-books', root);
+    el.innerHTML = `
+      <div class="tool-row"><input id="b-search" placeholder="搜索书单" value="${E.escapeHtml(bookFilter)}"></div>
       <div class="add-row">
         <input id="b-title" placeholder="书名 / 课程名" maxlength="160">
-        <select id="b-status">
-          <option value="want">想看</option>
-          <option value="reading">在看</option>
-          <option value="done">看完</option>
-        </select>
+        <input id="b-author" placeholder="作者 / 讲师" maxlength="120">
+        <select id="b-status"><option value="want">想看</option><option value="reading">在看</option><option value="done">看完</option></select>
+        <input id="b-progress" type="number" min="0" max="100" placeholder="进度%">
+        <input id="b-rating" type="number" min="1" max="5" placeholder="评分1-5">
         <button id="b-add" class="btn-primary">添加</button>
       </div>
-      <ul id="b-list" class="list"></ul>
-    </div>`;
-
-  async function renderNotes() {
-    let rows = await WB.store.list('notes', ['title', 'content']);
-    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const ul = E.$('#n-list', root);
-    ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有笔记</li>')); return; }
-    rows.forEach(r => {
-      const li = E.el(`
-        <li class="item">
-          <div class="item-main">
-            <div class="item-title">${E.escapeHtml(r.title)}</div>
-            ${r.content ? `<div class="item-sub">${E.escapeHtml(r.content.slice(0, 60))}${r.content.length > 60 ? '…' : ''}</div>` : ''}
-          </div>
-          <button class="del" data-id="${r.id}" title="删除">✕</button>
-        </li>`);
-      ul.appendChild(li);
+      <ul id="b-list" class="list"></ul>`;
+    E.$('#b-search', el).addEventListener('input', (e) => { bookFilter = e.target.value.trim().toLowerCase(); renderBooksList(); });
+    E.$('#b-add', el).addEventListener('click', async () => {
+      const title = E.$('#b-title', el).value.trim(); if (!title) { E.toast('先写书名'); return; }
+      await WB.store.upsert('books', ['title', 'author', 'review'], {
+        title, author: E.$('#b-author', el).value,
+        status: E.$('#b-status', el).value,
+        progress: parseInt(E.$('#b-progress', el).value) || 0,
+        rating: parseInt(E.$('#b-rating', el).value) || 0,
+        review: ''
+      });
+      E.$('#b-title', el).value = ''; E.$('#b-author', el).value = ''; E.$('#b-progress', el).value = ''; E.$('#b-rating', el).value = '';
+      renderBooksList();
     });
+    renderBooksList();
   }
-  async function renderBooks() {
-    let rows = await WB.store.list('books', ['title', 'author']);
-    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const ul = E.$('#b-list', root);
+  async function renderBooksList() {
+    const ul = E.$('#b-list', root); if (!ul) return;
+    allBooks = await WB.store.list('books', ['title', 'author', 'review']);
+    allBooks.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    let rows = allBooks.filter(r => !r.is_deleted);
+    if (bookFilter) rows = rows.filter(r => (r.title + ' ' + (r.author || '')).toLowerCase().includes(bookFilter));
     ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">书单是空的</li>')); return; }
+    if (!rows.length) { ul.appendChild(E.el('<li class="empty">书单是空的</li>')); return; }
     const label = { want: '想看', reading: '在看', done: '看完' };
     rows.forEach(r => {
+      const stars = r.rating ? '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) : '';
       const li = E.el(`
-        <li class="item">
+        <li class="item" data-id="${r.id}">
           <div class="item-main">
-            <div class="item-title">${E.escapeHtml(r.title)}</div>
-            ${r.author ? `<div class="item-sub">${E.escapeHtml(r.author)}</div>` : ''}
+            <div class="item-title">${E.escapeHtml(r.title)} ${stars ? '<span class="stars">' + stars + '</span>' : ''}</div>
+            <div class="item-sub">${E.escapeHtml(r.author || '')} · ${label[r.status] || '想看'} · 进度 ${r.progress || 0}%</div>
+            ${r.progress ? `<div class="prog"><div class="prog-bar" style="width:${r.progress}%"></div></div>` : ''}
           </div>
-          <span class="tag tag-mid">${label[r.status] || '想看'}</span>
-          <button class="del" data-id="${r.id}" title="删除">✕</button>
+          <div class="item-actions">
+            <button class="mini-btn" data-bedit="${r.id}">编辑</button>
+            <button class="del" data-id="${r.id}">✕</button>
+          </div>
         </li>`);
       ul.appendChild(li);
     });
   }
+  function openBookEditor(r) {
+    const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `
+      <div class="modal-box">
+        <h3>编辑书单</h3>
+        <input id="be-title" value="${E.escapeHtml(r.title)}">
+        <input id="be-author" value="${E.escapeHtml(r.author || '')}">
+        <select id="be-status"><option value="want">想看</option><option value="reading">在看</option><option value="done">看完</option></select>
+        <input id="be-progress" type="number" min="0" max="100" value="${r.progress || 0}">
+        <input id="be-rating" type="number" min="1" max="5" value="${r.rating || ''}" placeholder="评分1-5">
+        <textarea id="be-review" placeholder="感想">${E.escapeHtml(r.review || '')}</textarea>
+        <div class="modal-actions"><button id="be-save" class="btn-primary">保存</button><button id="be-cancel" class="btn-ghost">取消</button></div>
+      </div>`;
+    document.body.appendChild(m);
+    E.$('#be-status', m).value = r.status || 'want';
+    E.$('#be-cancel', m).onclick = () => m.remove();
+    E.$('#be-save', m).onclick = async () => {
+      await WB.store.upsert('books', ['title', 'author', 'review'], Object.assign({}, r, {
+        title: E.$('#be-title', m).value, author: E.$('#be-author', m).value,
+        status: E.$('#be-status', m).value, progress: parseInt(E.$('#be-progress', m).value) || 0,
+        rating: parseInt(E.$('#be-rating', m).value) || 0, review: E.$('#be-review', m).value
+      }));
+      m.remove(); renderBooksList();
+    };
+  }
 
-  E.$('#n-add', root).addEventListener('click', async () => {
-    const title = E.$('#n-title', root).value.trim();
-    if (!title) { E.toast('先写标题'); return; }
-    await WB.store.upsert('notes', ['title', 'content'], { title: title, content: '' });
-    E.$('#n-title', root).value = '';
-    renderNotes();
-  });
-  E.$('#b-add', root).addEventListener('click', async () => {
-    const title = E.$('#b-title', root).value.trim();
-    if (!title) { E.toast('先写书名'); return; }
-    await WB.store.upsert('books', ['title', 'author'], { title: title, author: '', status: E.$('#b-status', root).value });
-    E.$('#b-title', root).value = '';
-    renderBooks();
-  });
+  // ---------- 关系图谱（简化列表版） ----------
+  async function renderGraphPanel() {
+    const el = E.$('#s-graph', root);
+    const rows = await WB.store.list('notes', ['title', 'content']);
+    const list = [];
+    rows.forEach(r => {
+      const links = (r.links || '').split(',').map(s => s.trim()).filter(Boolean);
+      links.forEach(lid => {
+        const target = rows.find(x => x.id === lid);
+        if (target) list.push({ from: r.title, to: target.title });
+      });
+    });
+    el.innerHTML = `<div class="section-head"><h3>笔记双向链接关系</h3></div>
+      ${list.length ? '<ul class="list">' + list.map(x => `<li class="item"><div class="item-main"><div class="item-title">${E.escapeHtml(x.from)}</div><div class="item-sub">链接到 → ${E.escapeHtml(x.to)}</div></div></li>`).join('') + '</ul>' : '<div class="empty">暂无链接关系，编辑笔记时填写「双向链接」即可</div>'}`;
+  }
+
+  // ---------- 白板画布（简化可拖节点） ----------
+  function renderBoardPanel() {
+    const el = E.$('#s-board', root);
+    el.innerHTML = `
+      <div class="tool-row"><input id="board-text" placeholder="节点文字"><button id="board-add" class="btn-primary">添加节点</button><button id="board-save" class="btn-ghost">保存布局</button></div>
+      <div id="board-canvas" class="board-canvas"></div>`;
+    let nodes = [];
+    WB.store.list('notes', ['title', 'content']).then(rows => {
+      const saved = rows.find(r => r.title === '__whiteboard__');
+      if (saved && saved.whiteboard) { try { nodes = JSON.parse(saved.whiteboard); } catch (e) {} }
+      drawNodes();
+    });
+    function drawNodes() {
+      const c = E.$('#board-canvas', el); c.innerHTML = '';
+      nodes.forEach((n, i) => {
+        const d = E.el(`<div class="board-node" style="left:${n.x}px;top:${n.y}px">${E.escapeHtml(n.text)}</div>`);
+        let dragging = false, ox, oy, sx, sy;
+        d.addEventListener('pointerdown', (e) => { dragging = true; ox = e.clientX; oy = e.clientY; sx = n.x; sy = n.y; d.setPointerCapture(e.pointerId); });
+        d.addEventListener('pointermove', (e) => { if (!dragging) return; n.x = sx + e.clientX - ox; n.y = sy + e.clientY - oy; d.style.left = n.x + 'px'; d.style.top = n.y + 'px'; });
+        d.addEventListener('pointerup', () => { dragging = false; });
+        c.appendChild(d);
+      });
+    }
+    E.$('#board-add', el).addEventListener('click', () => {
+      const t = E.$('#board-text', el).value.trim(); if (!t) return;
+      nodes.push({ text: t, x: 50 + Math.random() * 200, y: 50 + Math.random() * 150 });
+      E.$('#board-text', el).value = ''; drawNodes();
+    });
+    E.$('#board-save', el).addEventListener('click', async () => {
+      const rows = await WB.store.list('notes', ['title', 'content']);
+      const saved = rows.find(r => r.title === '__whiteboard__');
+      await WB.store.upsert('notes', ['title', 'content'], { id: saved ? saved.id : undefined, title: '__whiteboard__', content: '白板布局', whiteboard: JSON.stringify(nodes) });
+      E.toast('白板布局已保存');
+    });
+  }
+
+  function setView(v) {
+    view = v;
+    E.$$('.view-switch .chip[data-sv]', root).forEach(c => c.classList.toggle('active', c.dataset.sv === v));
+    ['notes', 'books', 'graph', 'board'].forEach(k => E.$('#s-' + k, root).style.display = (k === v) ? 'block' : 'none');
+    if (v === 'notes') renderNotesPanel();
+    else if (v === 'books') renderBooksPanel();
+    else if (v === 'graph') renderGraphPanel();
+    else if (v === 'board') renderBoardPanel();
+  }
 
   root.addEventListener('click', async (e) => {
-    if (e.target.matches('#n-list .del')) { await WB.store.remove('notes', e.target.dataset.id); renderNotes(); }
-    if (e.target.matches('#b-list .del')) { await WB.store.remove('books', e.target.dataset.id); renderBooks(); }
+    if (e.target.matches('.chip[data-sv]')) { setView(e.target.dataset.sv); return; }
+    if (e.target.matches('#n-list .del')) { await WB.store.remove('notes', e.target.dataset.id); renderNotesList(); }
+    if (e.target.matches('[data-edit]')) { const r = allNotes.find(x => x.id === e.target.dataset.edit); if (r) openNoteEditor(r); }
+    if (e.target.matches('#b-list .del')) { await WB.store.remove('books', e.target.dataset.id); renderBooksList(); }
+    if (e.target.matches('[data-bedit]')) { const r = allBooks.find(x => x.id === e.target.dataset.bedit); if (r) openBookEditor(r); }
   });
 
-  const unsubNotes = WB.store.subscribe('notes', ['title', 'content'], renderNotes);
-  const unsubBooks = WB.store.subscribe('books', ['title', 'author'], renderBooks);
+  const unsubNotes = WB.store.subscribe('notes', ['title', 'content'], () => { if (view === 'notes') renderNotesList(); if (view === 'graph') renderGraphPanel(); if (view === 'board') renderBoardPanel(); });
+  const unsubBooks = WB.store.subscribe('books', ['title', 'author', 'review'], () => { if (view === 'books') renderBooksList(); });
   root.__unsub = function () { try { unsubNotes(); unsubBooks(); } catch (e) {} };
-  renderNotes();
-  renderBooks();
+  setView('notes');
 };
 
-// ---------- 日常生活：习惯打卡 ----------
+// ---------- 日常生活：习惯 + 心情 + 健康 + 统计 ----------
 WB.sections.life = function (root) {
   const E = WB.ui;
+  let view = 'habits';
+  function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function weekStart(d) { d = d || new Date(); const day = (d.getDay() + 6) % 7; const s = new Date(d); s.setDate(d.getDate() - day); return s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate()); }
+
   root.innerHTML = `
     <div class="section-head"><h2>日常生活</h2></div>
-    <div class="sub-block">
-      <h3>习惯打卡</h3>
+    <div class="view-switch" style="margin-bottom:14px">
+      <button class="chip active" data-lv="habits">习惯打卡</button>
+      <button class="chip" data-lv="mood">心情日记</button>
+      <button class="chip" data-lv="health">健康记录</button>
+      <button class="chip" data-lv="stats">统计报告</button>
+    </div>
+    <div id="l-habits" class="l-panel"></div>
+    <div id="l-mood" class="l-panel" style="display:none"></div>
+    <div id="l-health" class="l-panel" style="display:none"></div>
+    <div id="l-stats" class="l-panel" style="display:none"></div>`;
+
+  function getCheckins(r) { try { return JSON.parse(r.checkins || '{}'); } catch (e) { return {}; } }
+
+  // ---------- 习惯 ----------
+  function renderHabitsPanel() {
+    const el = E.$('#l-habits', root);
+    el.innerHTML = `
       <div class="add-row">
         <input id="h-name" placeholder="习惯名称，如 每天喝水" maxlength="80">
+        <select id="h-type"><option value="check">普通打卡</option><option value="number">量化（如喝水杯数）</option><option value="health">健康类</option></select>
+        <input id="h-unit" placeholder="单位：次/杯/分钟" maxlength="20">
+        <input id="h-target" type="number" placeholder="每日目标">
+        <input id="h-remind" type="time" title="提醒时间">
         <button id="h-add" class="btn-primary">添加</button>
       </div>
-      <ul id="h-list" class="list"></ul>
-    </div>`;
-
-  async function renderHabits() {
-    let rows = await WB.store.list('habits', ['name']);
+      <div id="h-weekgrid" class="week-grid-wrap"></div>
+      <ul id="h-list" class="list"></ul>`;
+    E.$('#h-add', el).addEventListener('click', async () => {
+      const name = E.$('#h-name', el).value.trim(); if (!name) { E.toast('先写习惯名'); return; }
+      await WB.store.upsert('habits', ['name'], {
+        name, category: '普通', type: E.$('#h-type', el).value,
+        unit: E.$('#h-unit', el).value, target: parseInt(E.$('#h-target', el).value) || 0,
+        quant: E.$('#h-type', el).value === 'number', remind_time: E.$('#h-remind', el).value,
+        checkins: '{}', last_checkin: '', streak: 0
+      });
+      E.$('#h-name', el).value = ''; E.$('#h-unit', el).value = ''; E.$('#h-target', el).value = '';
+      renderHabitsList();
+    });
+    renderHabitsList();
+  }
+  async function renderHabitsList() {
+    const ul = E.$('#h-list', root); if (!ul) return;
+    const rows = await WB.store.list('habits', ['name']);
     rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const ul = E.$('#h-list', root);
+    const today = todayLocal();
     ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有习惯</li>')); return; }
-    const today = new Date().toISOString().slice(0, 10);
+    if (!rows.length) { ul.appendChild(E.el('<li class="empty">还没有习惯</li>')); return; }
     rows.forEach(r => {
-      const doneToday = r.last_checkin === today;
+      const cins = getCheckins(r);
+      const todayRec = cins[today] || {};
+      const doneToday = !!todayRec.done;
+      const val = todayRec.value || '';
+      const isNum = r.quant || r.type === 'number';
+      const goal = r.target || 1;
+      const pct = isNum && val ? Math.min(100, Math.round(val / goal * 100)) : (doneToday ? 100 : 0);
       const li = E.el(`
-        <li class="item ${doneToday ? 'done' : ''}">
-          <button class="checkin ${doneToday ? 'on' : ''}" data-id="${r.id}">${doneToday ? '已打卡' : '打卡'}</button>
-          <div class="item-main">
-            <div class="item-title">${E.escapeHtml(r.name)}</div>
-            <div class="item-sub">连续 ${r.streak || 0} 天</div>
+        <li class="item ${doneToday ? 'done' : ''}" data-id="${r.id}">
+          <div class="item-main" style="flex:1;min-width:0">
+            <div class="item-title">${E.escapeHtml(r.name)} ${r.remind_time ? '<span class="mini-tag">⏰ ' + r.remind_time + '</span>' : ''}</div>
+            <div class="item-sub">连续 ${r.streak || 0} 天 · 今日 ${pct}%</div>
+            ${isNum ? `<div class="prog"><div class="prog-bar" style="width:${pct}%"></div></div>` : ''}
           </div>
-          <button class="del" data-id="${r.id}" title="删除">✕</button>
+          <div class="item-actions">
+            ${isNum ? `<input type="number" class="h-val" data-hid="${r.id}" value="${val}" placeholder="${r.unit || '数值'}">` : ''}
+            <button class="mini-btn checkin-btn ${doneToday ? 'on' : ''}" data-id="${r.id}">${doneToday ? '已打卡' : '打卡'}</button>
+            <button class="mini-btn" data-hpatch="${r.id}">补卡</button>
+            <button class="del" data-id="${r.id}">✕</button>
+          </div>
         </li>`);
+      ul.appendChild(li);
+    });
+    renderWeekGrid(rows);
+  }
+  function renderWeekGrid(rows) {
+    const box = E.$('#h-weekgrid', root); if (!box) return;
+    const ws = weekStart();
+    const days = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(ws + 'T00:00:00'); d.setDate(d.getDate() + i); days.push(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())); }
+    const html = `<div class="week-grid">
+      ${['一','二','三','四','五','六','日'].map((d, i) => `<div class="wg-h">${d}<br><small>${days[i].slice(5)}</small></div>`).join('')}
+      ${rows.map(r => {
+        const cins = getCheckins(r);
+        return `<div class="wg-name" title="${E.escapeHtml(r.name)}">${E.escapeHtml(r.name)}</div>` +
+          days.map(d => {
+            const rec = cins[d] || {};
+            const done = rec.done;
+            return `<div class="wg-cell ${done ? 'on' : ''}">${done ? '✓' : ''}</div>`;
+          }).join('');
+      }).join('')}
+    </div>`;
+    box.innerHTML = html;
+  }
+
+  // ---------- 心情日记 ----------
+  function renderMoodPanel() {
+    const el = E.$('#l-mood', root);
+    el.innerHTML = `
+      <div class="add-row">
+        <select id="m-mood"><option value="😄">😄 超棒</option><option value="😊">😊 不错</option><option value="😐">😐 一般</option><option value="😔">😔 低落</option><option value="😫">😫 很差</option></select>
+        <input id="m-note" placeholder="今天怎么样？" maxlength="200">
+        <input id="m-date" type="date" value="${todayLocal()}">
+        <button id="m-add" class="btn-primary">记录</button>
+      </div>
+      <ul id="m-list" class="list"></ul>`;
+    E.$('#m-add', el).addEventListener('click', async () => {
+      await WB.store.upsert('moods', ['note'], { mood: E.$('#m-mood', el).value, note: E.$('#m-note', el).value, log_date: E.$('#m-date', el).value || todayLocal() });
+      E.$('#m-note', el).value = ''; renderMoodList();
+    });
+    renderMoodList();
+  }
+  async function renderMoodList() {
+    const ul = E.$('#m-list', root); if (!ul) return;
+    const rows = await WB.store.list('moods', ['note']);
+    rows.sort((a, b) => (a.log_date < b.log_date ? 1 : -1));
+    ul.innerHTML = '';
+    if (!rows.length) { ul.appendChild(E.el('<li class="empty">还没有心情记录</li>')); return; }
+    rows.forEach(r => {
+      const li = E.el(`<li class="item"><div class="item-main"><div class="item-title">${r.mood || ''} ${E.escapeHtml(r.log_date || '')}</div><div class="item-sub">${E.escapeHtml(r.note || '')}</div></div><button class="del" data-id="${r.id}">✕</button></li>`);
       ul.appendChild(li);
     });
   }
 
-  E.$('#h-add', root).addEventListener('click', async () => {
-    const name = E.$('#h-name', root).value.trim();
-    if (!name) { E.toast('先写习惯名'); return; }
-    await WB.store.upsert('habits', ['name'], { name: name, last_checkin: '', streak: 0 });
-    E.$('#h-name', root).value = '';
-    renderHabits();
-  });
+  // ---------- 健康记录 ----------
+  function renderHealthPanel() {
+    const el = E.$('#l-health', root);
+    el.innerHTML = `
+      <div class="add-row">
+        <select id="he-kind"><option value="sleep">睡眠</option><option value="water">喝水</option><option value="sport">运动</option><option value="weight">体重</option><option value="medicine">用药</option><option value="steps">步数</option></select>
+        <input id="he-value" placeholder="数值，如 7.5 / 2000" maxlength="40">
+        <input id="he-note" placeholder="备注" maxlength="120">
+        <input id="he-date" type="date" value="${todayLocal()}">
+        <button id="he-add" class="btn-primary">记录</button>
+      </div>
+      <ul id="he-list" class="list"></ul>`;
+    E.$('#he-add', el).addEventListener('click', async () => {
+      await WB.store.upsert('health', ['note'], { kind: E.$('#he-kind', el).value, value: E.$('#he-value', el).value, note: E.$('#he-note', el).value, log_date: E.$('#he-date', el).value || todayLocal() });
+      E.$('#he-value', el).value = ''; E.$('#he-note', el).value = ''; renderHealthList();
+    });
+    renderHealthList();
+  }
+  async function renderHealthList() {
+    const ul = E.$('#he-list', root); if (!ul) return;
+    const rows = await WB.store.list('health', ['note']);
+    rows.sort((a, b) => (a.log_date < b.log_date ? 1 : -1));
+    const labels = { sleep: '睡眠', water: '喝水', sport: '运动', weight: '体重', medicine: '用药', steps: '步数' };
+    ul.innerHTML = '';
+    if (!rows.length) { ul.appendChild(E.el('<li class="empty">还没有健康记录</li>')); return; }
+    rows.forEach(r => {
+      const li = E.el(`<li class="item"><div class="item-main"><div class="item-title">${labels[r.kind] || r.kind} · ${E.escapeHtml(r.value || '')}</div><div class="item-sub">${E.escapeHtml(r.log_date || '')} ${E.escapeHtml(r.note || '')}</div></div><button class="del" data-id="${r.id}">✕</button></li>`);
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- 统计报告 ----------
+  async function renderStatsPanel() {
+    const el = E.$('#l-stats', root);
+    const habits = await WB.store.list('habits', ['name']);
+    const moods = await WB.store.list('moods', ['note']);
+    const today = todayLocal();
+    const ws = weekStart();
+    const days7 = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(ws + 'T00:00:00'); d.setDate(d.getDate() + i); days7.push(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())); }
+    let html = '<div class="stats-box">';
+    html += `<h3>习惯周报告</h3>`;
+    habits.forEach(r => {
+      const cins = getCheckins(r);
+      const weekHits = days7.filter(d => (cins[d] || {}).done).length;
+      html += `<div class="stat-row"><span>${E.escapeHtml(r.name)}</span><span>${weekHits}/7 天</span></div>`;
+    });
+    html += `<h3 style="margin-top:16px">心情分布（最近30条）</h3>`;
+    const moodCount = {};
+    moods.slice(0, 30).forEach(r => { moodCount[r.mood] = (moodCount[r.mood] || 0) + 1; });
+    Object.keys(moodCount).forEach(k => { html += `<div class="stat-row"><span>${k}</span><span>${moodCount[k]} 次</span></div>`; });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function setView(v) {
+    view = v;
+    E.$$('.view-switch .chip[data-lv]', root).forEach(c => c.classList.toggle('active', c.dataset.lv === v));
+    ['habits', 'mood', 'health', 'stats'].forEach(k => E.$('#l-' + k, root).style.display = (k === v) ? 'block' : 'none');
+    if (v === 'habits') renderHabitsPanel();
+    else if (v === 'mood') renderMoodPanel();
+    else if (v === 'health') renderHealthPanel();
+    else if (v === 'stats') renderStatsPanel();
+  }
 
   root.addEventListener('click', async (e) => {
-    if (e.target.matches('.checkin')) {
+    if (e.target.matches('.chip[data-lv]')) { setView(e.target.dataset.lv); return; }
+    // 习惯打卡
+    if (e.target.matches('.checkin-btn')) {
       const id = e.target.dataset.id;
       const rows = await WB.store.list('habits', ['name']);
-      const r = rows.find(x => x.id === id);
-      if (!r) return;
-      const today = new Date().toISOString().slice(0, 10);
-      const doneToday = r.last_checkin === today;
-      await WB.store.upsert('habits', ['name'], Object.assign({}, r, {
-        last_checkin: doneToday ? '' : today,
-        streak: doneToday ? Math.max((r.streak || 1) - 1, 0) : (r.last_checkin === new Date(Date.now() - 86400000).toISOString().slice(0, 10) ? (r.streak || 0) + 1 : 1)
-      }));
-      renderHabits();
+      const r = rows.find(x => x.id === id); if (!r) return;
+      const today = todayLocal();
+      const cins = getCheckins(r);
+      const done = !(cins[today] || {}).done;
+      cins[today] = Object.assign({}, cins[today], { done, value: done ? (cins[today] && cins[today].value ? cins[today].value : (r.target || 1)) : 0 });
+      const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const streak = done ? ((cins[yest] || {}).done ? (r.streak || 0) + 1 : 1) : Math.max((r.streak || 1) - 1, 0);
+      await WB.store.upsert('habits', ['name'], Object.assign({}, r, { checkins: JSON.stringify(cins), last_checkin: done ? today : '', streak }));
+      renderHabitsList();
     }
-    if (e.target.matches('#h-list .del')) { await WB.store.remove('habits', e.target.dataset.id); renderHabits(); }
+    if (e.target.matches('.h-val')) return;
+    if (e.target.matches('[data-hpatch]')) {
+      const id = e.target.dataset.hpatch;
+      const d = prompt('补卡日期（如 2026-08-22）', todayLocal()); if (!d) return;
+      const rows = await WB.store.list('habits', ['name']);
+      const r = rows.find(x => x.id === id); if (!r) return;
+      const cins = getCheckins(r);
+      cins[d] = Object.assign({}, cins[d], { done: true, patched: true });
+      await WB.store.upsert('habits', ['name'], Object.assign({}, r, { checkins: JSON.stringify(cins) }));
+      renderHabitsList();
+    }
+    if (e.target.matches('#h-list .del')) { await WB.store.remove('habits', e.target.dataset.id); renderHabitsList(); }
+    if (e.target.matches('#m-list .del')) { await WB.store.remove('moods', e.target.dataset.id); renderMoodList(); }
+    if (e.target.matches('#he-list .del')) { await WB.store.remove('health', e.target.dataset.id); renderHealthList(); }
   });
 
-  const unsubHabits = WB.store.subscribe('habits', ['name'], renderHabits);
-  root.__unsub = unsubHabits;
-  renderHabits();
+  // 量化习惯输入框失焦保存
+  root.addEventListener('change', async (e) => {
+    if (e.target.matches('.h-val')) {
+      const id = e.target.dataset.hid;
+      const rows = await WB.store.list('habits', ['name']);
+      const r = rows.find(x => x.id === id); if (!r) return;
+      const today = todayLocal();
+      const cins = getCheckins(r);
+      const val = parseFloat(e.target.value) || 0;
+      const done = r.target ? val >= r.target : val > 0;
+      cins[today] = Object.assign({}, cins[today], { value: val, done });
+      await WB.store.upsert('habits', ['name'], Object.assign({}, r, { checkins: JSON.stringify(cins), last_checkin: done ? today : (cins[today].done ? today : '') }));
+      renderHabitsList();
+    }
+  });
+
+  const unsubs = [];
+  unsubs.push(WB.store.subscribe('habits', ['name'], () => { if (view === 'habits') renderHabitsList(); }));
+  unsubs.push(WB.store.subscribe('moods', ['note'], () => { if (view === 'mood') renderMoodList(); }));
+  unsubs.push(WB.store.subscribe('health', ['note'], () => { if (view === 'health') renderHealthList(); }));
+  root.__unsub = function () { unsubs.forEach(u => { try { u(); } catch (e) {} }); };
+  setView('habits');
 };

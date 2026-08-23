@@ -5,6 +5,7 @@ window.WB = window.WB || {};
 (function () {
   const E = WB.ui;
   const NAV = [
+    { key: 'dashboard', label: '总览', icon: '📊' },
     { key: 'work', label: '工作', icon: '💼' },
     { key: 'study', label: '学习', icon: '📚' },
     { key: 'life', label: '日常生活', icon: '🏠' }
@@ -15,8 +16,12 @@ window.WB = window.WB || {};
   const TABLES = [
     { t: 'todos', enc: ['title', 'note'] },
     { t: 'notes', enc: ['title', 'content'] },
-    { t: 'books', enc: ['title', 'author'] },
-    { t: 'habits', enc: ['name'] }
+    { t: 'books', enc: ['title', 'author', 'review'] },
+    { t: 'habits', enc: ['name'] },
+    { t: 'goals', enc: ['title', 'key_results'] },
+    { t: 'time_logs', enc: ['note'] },
+    { t: 'moods', enc: ['note'] },
+    { t: 'health', enc: ['note'] }
   ];
 
   // ---------- 番茄钟（全局浮动条）----------
@@ -129,8 +134,11 @@ window.WB = window.WB || {};
       <div class="greet">${greet}，老板</div>
       <div class="date">${d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</div>
       <div class="top-actions">
+        <input id="nlInput" placeholder="自然语言输入，如“明天下午5点交报告”“每周五跑步”" maxlength="200">
+        <button id="nlBtn" class="btn-ghost">执行</button>
         <input id="search" placeholder="搜索（本设备）">
-        <button id="exportBtn" class="btn-ghost" title="导出加密备份文件（存到微信/邮箱/网盘）">📤 备份</button>
+        <button id="themeBtn" class="btn-ghost" title="切换明暗主题">🌙</button>
+        <button id="exportBtn" class="btn-ghost" title="导出加密备份文件">📤 备份</button>
         <button id="importBtn" class="btn-ghost" title="从备份文件恢复数据">📥 恢复</button>
         <input id="importFile" type="file" accept="application/json,.json,.txt" style="display:none">
         <button id="lockBtn" class="btn-ghost" title="退出当前口令">锁</button>
@@ -143,19 +151,30 @@ window.WB = window.WB || {};
       const q = e.target.value.trim().toLowerCase();
       E.$$('#content .item-title').forEach(t => {
         const li = t.closest('.item');
-        li.style.display = !q || t.textContent.toLowerCase().includes(q) ? '' : 'none';
+        if (li) li.style.display = !q || t.textContent.toLowerCase().includes(q) ? '' : 'none';
       });
     });
+    E.$('#themeBtn', tb).addEventListener('click', () => {
+      document.body.classList.toggle('light');
+      localStorage.setItem('wb_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+      E.toast('主题已切换');
+    });
+    if (localStorage.getItem('wb_theme') === 'light') document.body.classList.add('light');
+    E.$('#nlBtn', tb).addEventListener('click', () => doNaturalLanguage(E.$('#nlInput', tb).value));
+    E.$('#nlInput', tb).addEventListener('keydown', (e) => { if (e.key === 'Enter') doNaturalLanguage(e.target.value); });
   }
 
   function switchTo(key) {
-    const content = E.$('#content');
-    const oldRoot = content.firstElementChild;
+    const oldContent = E.$('#content');
+    const oldRoot = oldContent.firstElementChild;
     if (oldRoot && oldRoot.__unsub) { try { oldRoot.__unsub(); } catch (e) {} }
-    content.innerHTML = '';
+    // 把 content 容器整体替换掉，彻底清掉旧板块残留的事件监听器，避免切回来后列表空白
+    const content = oldContent.cloneNode(false);
+    oldContent.parentNode.replaceChild(content, oldContent);
     current = key;
     E.$$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
-    if (key === 'work') WB.sections.work(content);
+    if (key === 'dashboard') WB.dashboard(content);
+    else if (key === 'work') WB.sections.work(content);
     else if (key === 'study') WB.sections.study(content);
     else if (key === 'life') WB.sections.life(content);
     if (content.firstElementChild && !content.firstElementChild.__unsub) content.firstElementChild.__unsub = function () {};
@@ -172,7 +191,7 @@ window.WB = window.WB || {};
       E.setSync('off', '纯本地模式');
     }
     buildShell();
-    switchTo('work');
+    switchTo('dashboard');
     startReminderLoop();
     E.$('#passModal').style.display = 'none';
   }
@@ -218,6 +237,130 @@ window.WB = window.WB || {};
       input.focus();
     };
   }
+
+  // ---------- 自然语言输入（免费规则版） ----------
+  function parseSimpleTime(text) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    const shift = n => { const d = new Date(now); d.setDate(d.getDate() + n); return fmt(d); };
+    let due = null, time = null, t = text;
+    const rel = [['大后天', 3], ['后天', 2], ['明天', 1], ['今天', 0]];
+    for (const [kw, n] of rel) { if (t.includes(kw)) { due = shift(n); t = t.replace(kw, ''); break; } }
+    const tm = t.match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/);
+    const tm2 = t.match(/(\d{1,2})\s*点半?/);
+    const ap = t.match(/(上午|下午|晚上|中午|早上|早晨|傍晚)/);
+    let hour = null, minute = 0;
+    if (tm) { hour = parseInt(tm[1]); minute = parseInt(tm[2]); t = t.replace(tm[0], ''); }
+    else if (tm2) { hour = parseInt(tm2[1]); minute = /半/.test(tm2[0]) ? 30 : 0; t = t.replace(tm2[0], ''); }
+    if (ap && hour != null) {
+      const w = ap[1];
+      if (w === '下午' || w === '晚上' || w === '傍晚') { if (hour < 12) hour += 12; }
+      else if (w === '中午') { if (hour !== 12) hour = 12; }
+      else { if (hour === 12) hour = 0; }
+      t = t.replace(ap[0], '');
+    }
+    if (hour != null) time = pad(hour) + ':' + pad(minute);
+    t = t.replace(/[每交搞定之前完成做写弄一下啦吧呀呢]/g, ' ').replace(/\s+/g, ' ').trim();
+    return { title: t || text, due: due, time: time };
+  }
+  async function doNaturalLanguage(text) {
+    const t = text.trim(); if (!t) return;
+    const lower = t.toLowerCase();
+    // 识别习惯："每天跑步""每周五游泳"
+    if (/每天|每周|习惯|打卡/.test(t)) {
+      const name = t.replace(/每天|每周.|习惯|打卡/g, '').trim() || t;
+      await WB.store.upsert('habits', ['name'], { name: name, category: '普通', type: 'check', checkins: '{}' });
+      E.toast('已创建习惯：' + name);
+      E.$('#nlInput').value = '';
+      if (current === 'life') switchTo('life');
+      return;
+    }
+    // 识别笔记
+    if (/笔记|记录|想法/.test(t)) {
+      const title = t.replace(/笔记|记录|想法/g, '').trim() || t;
+      await WB.store.upsert('notes', ['title', 'content'], { title: title, content: '' });
+      E.toast('已创建笔记：' + title);
+      E.$('#nlInput').value = '';
+      if (current === 'study') switchTo('study');
+      return;
+    }
+    // 默认当成任务，简单识别时间
+    const smart = parseSimpleTime(t);
+    await WB.store.upsert('todos', ['title', 'note'], {
+      title: smart.title || t,
+      priority: 'mid',
+      due_date: smart.due,
+      due_time: smart.time,
+      kanban_status: 'todo',
+      status: 'active',
+      raw_input: t
+    });
+    E.toast('已创建待办：' + (smart.title || t));
+    E.$('#nlInput').value = '';
+    if (current === 'work') switchTo('work');
+  }
+
+  // ---------- 首页总览仪表盘 ----------
+  WB.dashboard = async function (root) {
+    const E = WB.ui;
+    root.innerHTML = `
+      <div class="section-head"><h2>今日总览</h2></div>
+      <div class="dash-grid">
+        <div class="dash-card" id="dash-todos"><h3>📋 今日待办</h3><div class="dash-body"></div></div>
+        <div class="dash-card" id="dash-habits"><h3>🌱 习惯打卡</h3><div class="dash-body"></div></div>
+        <div class="dash-card" id="dash-notes"><h3>📝 今日笔记</h3><div class="dash-body"></div></div>
+        <div class="dash-card" id="dash-focus"><h3>⏱️ 本周专注</h3><div class="dash-body"></div></div>
+      </div>
+      <div class="section-head" style="margin-top:20px"><h2>目标进展</h2></div>
+      <div id="dash-goals"></div>
+      <div class="section-head" style="margin-top:20px"><h2>每周复盘</h2></div>
+      <div id="dash-weekly" class="weekly-box"></div>`;
+    async function render() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const ws = weekStart();
+        const todos = await WB.store.list('todos', ['title', 'note']);
+        const todayTodos = todos.filter(r => r.kind === 'task' && !r.parent_id && r.due_date === today && !isDoneR(r));
+        E.$('#dash-todos .dash-body', root).innerHTML = todayTodos.length ? todayTodos.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)} ${r.due_time ? '(' + r.due_time + ')' : ''}</div>`).join('') : '<div class="dash-row muted">今天没有到期待办</div>';
+
+        const habits = await WB.store.list('habits', ['name']);
+        const todayCheckins = habits.filter(r => r.last_checkin === today);
+        E.$('#dash-habits .dash-body', root).innerHTML = habits.length ? `<div class="dash-row">${todayCheckins.length}/${habits.length} 已打卡</div>` + habits.map(r => `<div class="dash-row">${r.last_checkin === today ? '✅' : '⬜'} ${E.escapeHtml(r.name)}</div>`).join('') : '<div class="dash-row muted">还没有习惯</div>';
+
+        const notes = await WB.store.list('notes', ['title', 'content']);
+        const todayNotes = notes.filter(r => r.daily_date === today || (r.created_at || '').slice(0, 10) === today);
+        E.$('#dash-notes .dash-body', root).innerHTML = todayNotes.length ? todayNotes.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)}</div>`).join('') : '<div class="dash-row muted">今天还没写笔记</div>';
+
+        const focusTotal = todos.reduce((s, r) => s + (parseInt(r.focus_minutes) || 0), 0);
+        E.$('#dash-focus .dash-body', root).innerHTML = `<div class="dash-row">累计 ${focusTotal} 分钟</div>`;
+
+        const goals = await WB.store.list('goals', ['title', 'key_results']);
+        const gEl = E.$('#dash-goals', root);
+        if (!goals.length) { gEl.innerHTML = '<div class="empty">还没有目标，去「学习」板块添加</div>'; }
+        else {
+          gEl.innerHTML = goals.filter(g => g.status !== 'done').map(g => {
+            let krs = []; try { krs = JSON.parse(g.key_results || '[]'); } catch (e) {}
+            const done = krs.filter(k => (k.current || 0) >= (k.target || 1)).length;
+            const pct = krs.length ? Math.round(done / krs.length * 100) : 0;
+            return `<div class="goal-row"><div class="goal-title">${E.escapeHtml(g.title)}</div><div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${pct}%</span></div></div>`;
+          }).join('');
+        }
+
+        const weekDone = todos.filter(r => r.kind === 'task' && isDoneR(r) && (r.updated_at || '').slice(0, 10) >= ws).length;
+        const weekNew = todos.filter(r => (r.created_at || '').slice(0, 10) >= ws).length;
+        E.$('#dash-weekly', root).innerHTML = `<div class="sum-grid"><div class="sum-card"><div class="sum-num">${weekDone}</div><div class="sum-lbl">本周完成</div></div><div class="sum-card"><div class="sum-num">${weekNew}</div><div class="sum-lbl">本周新建</div></div><div class="sum-card"><div class="sum-num">${todayCheckins.length}</div><div class="sum-lbl">今日打卡</div></div><div class="sum-card"><div class="sum-num">${focusTotal}</div><div class="sum-lbl">累计专注(分)</div></div></div>`;
+      } catch (e) { console.error('dashboard error', e); }
+    }
+    function weekStart() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10); }
+    const unsubs = [];
+    for (const t of ['todos', 'habits', 'notes', 'goals']) {
+      const enc = t === 'notes' ? ['title', 'content'] : t === 'habits' ? ['name'] : t === 'goals' ? ['title', 'key_results'] : ['title', 'note'];
+      unsubs.push(WB.store.subscribe(t, enc, render));
+    }
+    root.__unsub = function () { unsubs.forEach(u => { try { u(); } catch (e) {} }); };
+    render();
+  };
 
   async function exportData() {
     if (!WB.store.getPassphrase()) { E.toast('还没进入工作台，无法备份'); return; }
