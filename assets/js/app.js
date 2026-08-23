@@ -310,28 +310,63 @@ window.WB = window.WB || {};
         <div class="dash-card" id="dash-notes"><h3>📝 今日笔记</h3><div class="dash-body"></div></div>
         <div class="dash-card" id="dash-focus"><h3>⏱️ 本周专注</h3><div class="dash-body"></div></div>
       </div>
-      <div class="section-head" style="margin-top:20px"><h2>目标进展</h2></div>
-      <div id="dash-goals"></div>
+
+      <div class="section-head" style="margin-top:20px"><h2>目标管理</h2></div>
+      <div class="dash-card" id="dash-goals"><div class="dash-body"></div></div>
+      <div class="add-row" id="goal-form">
+        <input id="g-title" placeholder="目标名称" maxlength="120">
+        <input id="g-kr" placeholder="关键结果（如：跑步100公里/减重5公斤）" maxlength="120">
+        <input id="g-deadline" type="date">
+        <button id="g-add" class="btn-primary">添加目标</button>
+      </div>
+
+      <div class="section-head" style="margin-top:20px"><h2>时间日志</h2></div>
+      <div class="dash-card" id="dash-logs"><div class="dash-body"></div></div>
+      <div class="add-row" id="log-form">
+        <input id="lg-title" placeholder="做了什么" maxlength="120">
+        <input id="lg-min" type="number" placeholder="多少分钟" min="1" style="width:100px">
+        <select id="lg-cat"><option value="工作">工作</option><option value="学习">学习</option><option value="生活">生活</option><option value="休息">休息</option></select>
+        <button id="lg-add" class="btn-primary">记一笔</button>
+      </div>
+
+      <div class="section-head" style="margin-top:20px"><h2>日历融合</h2></div>
+      <div id="dash-fusion-cal"></div>
+
+      <div class="section-head" style="margin-top:20px"><h2>时间轴 / 甘特图</h2></div>
+      <div id="dash-gantt"></div>
+
       <div class="section-head" style="margin-top:20px"><h2>每周复盘</h2></div>
-      <div id="dash-weekly" class="weekly-box"></div>`;
+      <div id="dash-weekly" class="weekly-box"></div>
+
+      <div class="section-head" style="margin-top:20px"><h2>导出报表</h2></div>
+      <div class="tool-row">
+        <button id="dash-export-week" class="btn-ghost">📊 导出本周报表</button>
+        <button id="dash-export-all" class="btn-ghost">📤 导出全部加密备份</button>
+      </div>`;
     function pad(n) { return String(n).padStart(2, '0'); }
     function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
     function weekStart() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    let curCal = { y: new Date().getFullYear(), m: new Date().getMonth() };
+
     async function render() {
       try {
         const today = todayLocal();
         const ws = weekStart();
         const todos = await WB.store.list('todos', ['title', 'note']);
+        const habits = await WB.store.list('habits', ['name']);
+        const notes = await WB.store.list('notes', ['title', 'content']);
+        const goals = await WB.store.list('goals', ['title', 'key_results']);
+        const logs = await WB.store.list('time_logs', ['note']);
+
+        // 今日总览
         const todayTodos = todos.filter(r => r.kind === 'task' && !r.parent_id && r.due_date === today && !isDoneR(r));
         const b1 = E.$('#dash-todos .dash-body', root);
         if (b1) b1.innerHTML = todayTodos.length ? todayTodos.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)} ${r.due_time ? '(' + r.due_time + ')' : ''}</div>`).join('') : '<div class="dash-row muted">今天没有到期待办</div>';
 
-        const habits = await WB.store.list('habits', ['name']);
         const todayCheckins = habits.filter(r => r.last_checkin === today);
         const b2 = E.$('#dash-habits .dash-body', root);
         if (b2) b2.innerHTML = habits.length ? `<div class="dash-row">${todayCheckins.length}/${habits.length} 已打卡</div>` + habits.map(r => `<div class="dash-row">${r.last_checkin === today ? '✅' : '⬜'} ${E.escapeHtml(r.name)}</div>`).join('') : '<div class="dash-row muted">还没有习惯</div>';
 
-        const notes = await WB.store.list('notes', ['title', 'content']);
         const todayNotes = notes.filter(r => r.daily_date === today || (r.created_at || '').slice(0, 10) === today);
         const b3 = E.$('#dash-notes .dash-body', root);
         if (b3) b3.innerHTML = todayNotes.length ? todayNotes.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)}</div>`).join('') : '<div class="dash-row muted">今天还没写笔记</div>';
@@ -340,20 +375,39 @@ window.WB = window.WB || {};
         const b4 = E.$('#dash-focus .dash-body', root);
         if (b4) b4.innerHTML = `<div class="dash-row">累计 ${focusTotal} 分钟</div>`;
 
-        const goals = await WB.store.list('goals', ['title', 'key_results']);
-        const gEl = E.$('#dash-goals', root);
+        // 目标管理
+        const gEl = E.$('#dash-goals .dash-body', root);
         if (gEl) {
-          if (!goals.length) { gEl.innerHTML = '<div class="empty">还没有目标，去「学习」板块添加</div>'; }
+          if (!goals.length) { gEl.innerHTML = '<div class="empty">还没有目标，上方添加一个</div>'; }
           else {
             gEl.innerHTML = goals.filter(g => g.status !== 'done').map(g => {
               let krs = []; try { krs = JSON.parse(g.key_results || '[]'); } catch (e) {}
               const done = krs.filter(k => (k.current || 0) >= (k.target || 1)).length;
               const pct = krs.length ? Math.round(done / krs.length * 100) : 0;
-              return `<div class="goal-row"><div class="goal-title">${E.escapeHtml(g.title)}</div><div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${pct}%</span></div></div>`;
+              const krsHtml = krs.map((k, i) => `<div class="dash-row" style="font-size:12px;color:var(--muted)">• ${E.escapeHtml(k.text || '')} ${k.current || 0}/${k.target || 1} <button class="mini-btn" data-gk="${g.id}" data-gki="${i}">+1</button></div>`).join('');
+              return `<div class="goal-row" data-gid="${g.id}"><div class="goal-title">${E.escapeHtml(g.title)} ${g.deadline ? '（截止 ' + g.deadline + '）' : ''}</div>${krsHtml}<div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${pct}%</span></div><button class="mini-btn" data-gdone="${g.id}">标记完成</button> <button class="del" data-gdel="${g.id}">✕</button></div>`;
             }).join('');
           }
         }
 
+        // 时间日志
+        const lEl = E.$('#dash-logs .dash-body', root);
+        if (lEl) {
+          const todayLogs = logs.filter(r => r.log_date === today);
+          const totalMin = todayLogs.reduce((s, r) => s + (parseInt(r.minutes) || 0), 0);
+          if (!todayLogs.length) { lEl.innerHTML = '<div class="empty">今天还没记时间</div>'; }
+          else {
+            lEl.innerHTML = `<div class="dash-row">今日累计 ${totalMin} 分钟</div>` + todayLogs.map(r => `<div class="dash-row">• [${E.escapeHtml(r.category || '其他')}] ${E.escapeHtml(r.note || '')} ${r.minutes || 0}分 <button class="del" data-ldel="${r.id}">✕</button></div>`).join('');
+          }
+        }
+
+        // 日历融合
+        renderFusionCal(todos, habits, notes);
+
+        // 甘特图
+        renderGantt(todos);
+
+        // 每周复盘
         const weekDone = todos.filter(r => r.kind === 'task' && isDoneR(r) && (r.updated_at || '').slice(0, 10) >= ws).length;
         const weekNew = todos.filter(r => (r.created_at || '').slice(0, 10) >= ws).length;
         const wEl = E.$('#dash-weekly', root);
@@ -364,9 +418,130 @@ window.WB = window.WB || {};
         if (body) body.innerHTML = '<div class="dash-row warn">总览加载失败，刷新试试：' + E.escapeHtml(e.message || '未知错误') + '</div>';
       }
     }
+
+    function renderFusionCal(todos, habits, notes) {
+      const el = E.$('#dash-fusion-cal', root); if (!el) return;
+      const { y, m } = curCal;
+      const days = new Date(y, m + 1, 0).getDate();
+      const firstDow = new Date(y, m, 1).getDay();
+      const todayStr = todayLocal();
+      let html = `<div class="cal-head"><button class="cal-nav" id="fc-prev">‹</button><span class="cal-title">${y}年${m + 1}月</span><button class="cal-nav" id="fc-next">›</button></div><div class="cal-grid">`;
+      ['日', '一', '二', '三', '四', '五', '六'].forEach(d => html += `<div class="cal-dow">${d}</div>`);
+      for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell empty"></div>';
+      for (let d = 1; d <= days; d++) {
+        const ds = `${y}-${pad(m + 1)}-${pad(d)}`;
+        const hasTodo = todos.some(r => r.due_date === ds);
+        const hasHabit = habits.some(r => (r.checkins && JSON.parse(r.checkins || '{}')[ds])?.done);
+        const hasNote = notes.some(r => r.daily_date === ds || (r.created_at || '').slice(0, 10) === ds);
+        html += `<div class="cal-cell ${ds === todayStr ? 'today' : ''} ${hasTodo || hasHabit || hasNote ? 'has' : ''}"><span class="cal-num">${d}</span>${hasTodo ? '<span class="cal-dot" style="background:var(--amber)"></span>' : ''}${hasHabit ? '<span class="cal-dot" style="background:var(--mint);margin-left:8px"></span>' : ''}${hasNote ? '<span class="cal-dot" style="background:var(--blue);margin-left:16px"></span>' : ''}</div>`;
+      }
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    function renderGantt(todos) {
+      const el = E.$('#dash-gantt', root); if (!el) return;
+      const rows = todos.filter(r => r.scheduled_date && r.scheduled_start && r.kind === 'task' && !r.parent_id);
+      rows.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || a.scheduled_start.localeCompare(b.scheduled_start));
+      if (!rows.length) { el.innerHTML = '<div class="empty">还没有排程任务，去「工作」板块的「排程」视图添加</div>'; return; }
+      let html = '<div class="gantt-rows">';
+      rows.slice(0, 30).forEach(r => {
+        const start = r.scheduled_date + ' ' + r.scheduled_start;
+        const end = r.scheduled_date + ' ' + (r.scheduled_end || r.scheduled_start);
+        html += `<div class="gantt-row"><div class="gantt-title">${E.escapeHtml(r.title)}</div><div class="gantt-bar">${start} → ${end}</div></div>`;
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    // 目标添加
+    E.$('#g-add', root).addEventListener('click', async () => {
+      const title = E.$('#g-title', root).value.trim();
+      const kr = E.$('#g-kr', root).value.trim();
+      const deadline = E.$('#g-deadline', root).value;
+      if (!title) { E.toast('先写目标名称'); return; }
+      const krs = kr ? [{ text: kr, target: 1, current: 0 }] : [];
+      await WB.store.upsert('goals', ['title', 'key_results'], { title, key_results: JSON.stringify(krs), deadline, status: 'active' });
+      E.$('#g-title', root).value = ''; E.$('#g-kr', root).value = ''; E.$('#g-deadline', root).value = '';
+      render();
+    });
+
+    // 时间日志添加
+    E.$('#lg-add', root).addEventListener('click', async () => {
+      const note = E.$('#lg-title', root).value.trim();
+      const min = parseInt(E.$('#lg-min', root).value) || 0;
+      const cat = E.$('#lg-cat', root).value;
+      if (!note || min <= 0) { E.toast('写清楚做了什么、多少分钟'); return; }
+      await WB.store.upsert('time_logs', ['note'], { note, minutes: min, category: cat, log_date: todayLocal() });
+      E.$('#lg-title', root).value = ''; E.$('#lg-min', root).value = '';
+      render();
+    });
+
+    // 通用点击：目标进度+1 / 完成 / 删除 / 时间日志删除 / 日历切换
+    root.addEventListener('click', async (e) => {
+      if (e.target.matches('#fc-prev')) { curCal.m--; if (curCal.m < 0) { curCal.m = 11; curCal.y--; } const data = await gatherData(); renderFusionCal(data.todos, data.habits, data.notes); return; }
+      if (e.target.matches('#fc-next')) { curCal.m++; if (curCal.m > 11) { curCal.m = 0; curCal.y++; } const data = await gatherData(); renderFusionCal(data.todos, data.habits, data.notes); return; }
+      if (e.target.matches('[data-gk]')) {
+        const id = e.target.dataset.gk; const idx = parseInt(e.target.dataset.gki);
+        const rows = await WB.store.list('goals', ['title', 'key_results']);
+        const r = rows.find(x => x.id === id); if (!r) return;
+        let krs = []; try { krs = JSON.parse(r.key_results || '[]'); } catch (e) {}
+        if (krs[idx]) { krs[idx].current = (krs[idx].current || 0) + 1; }
+        await WB.store.upsert('goals', ['title', 'key_results'], Object.assign({}, r, { key_results: JSON.stringify(krs) }));
+        render();
+      }
+      if (e.target.matches('[data-gdone]')) {
+        const id = e.target.dataset.gdone;
+        const rows = await WB.store.list('goals', ['title', 'key_results']);
+        const r = rows.find(x => x.id === id); if (!r) return;
+        await WB.store.upsert('goals', ['title', 'key_results'], Object.assign({}, r, { status: 'done' }));
+        render();
+      }
+      if (e.target.matches('[data-gdel]')) {
+        await WB.store.remove('goals', e.target.dataset.gdel); render();
+      }
+      if (e.target.matches('[data-ldel]')) {
+        await WB.store.remove('time_logs', e.target.dataset.ldel); render();
+      }
+      if (e.target.matches('#dash-export-all')) {
+        exportData();
+      }
+      if (e.target.matches('#dash-export-week')) {
+        exportWeekReport();
+      }
+    });
+
+    async function gatherData() {
+      return {
+        todos: await WB.store.list('todos', ['title', 'note']),
+        habits: await WB.store.list('habits', ['name']),
+        notes: await WB.store.list('notes', ['title', 'content'])
+      };
+    }
+
+    async function exportWeekReport() {
+      try {
+        const ws = weekStart();
+        const todos = await WB.store.list('todos', ['title', 'note']);
+        const habits = await WB.store.list('habits', ['name']);
+        const notes = await WB.store.list('notes', ['title', 'content']);
+        const logs = await WB.store.list('time_logs', ['note']);
+        let txt = `糊涂蛋工作台 · 本周报表（${ws} 起）\n\n`;
+        txt += `【本周完成待办】\n` + todos.filter(r => r.kind === 'task' && isDoneR(r) && (r.updated_at || '').slice(0, 10) >= ws).map(r => `✓ ${r.title}`).join('\n') + '\n\n';
+        txt += `【本周新建待办】\n` + todos.filter(r => (r.created_at || '').slice(0, 10) >= ws).map(r => `• ${r.title}`).join('\n') + '\n\n';
+        txt += `【习惯打卡】\n` + habits.map(r => `• ${r.name}：连续 ${r.streak || 0} 天`).join('\n') + '\n\n';
+        txt += `【本周时间日志】\n` + logs.filter(r => (r.log_date || '') >= ws).map(r => `• ${r.category || '其他'} ${r.note || ''} ${r.minutes || 0}分`).join('\n') + '\n\n';
+        txt += `【本周笔记】\n` + notes.filter(r => (r.created_at || '').slice(0, 10) >= ws).map(r => `• ${r.title}`).join('\n') + '\n';
+        const blob = new Blob([txt], { type: 'text/plain' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '本周报表_' + todayLocal() + '.txt'; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        E.toast('本周报表已导出');
+      } catch (e) { E.toast('导出失败：' + (e.message || e)); }
+    }
+
     const unsubs = [];
-    for (const t of ['todos', 'habits', 'notes', 'goals']) {
-      const enc = t === 'notes' ? ['title', 'content'] : t === 'habits' ? ['name'] : t === 'goals' ? ['title', 'key_results'] : ['title', 'note'];
+    for (const t of ['todos', 'habits', 'notes', 'goals', 'time_logs']) {
+      const enc = t === 'notes' ? ['title', 'content'] : t === 'habits' ? ['name'] : t === 'goals' ? ['title', 'key_results'] : t === 'time_logs' ? ['note'] : ['title', 'note'];
       unsubs.push(WB.store.subscribe(t, enc, render));
     }
     root.__unsub = function () { unsubs.forEach(u => { try { u(); } catch (e) {} }); };
