@@ -113,6 +113,7 @@ a { color: inherit; text-decoration: none; }
 .home-brand { margin-bottom: 14px; }
 
 .topbar-right { display:flex; align-items:center; gap:8px; }
+.topbar-left { display:flex; align-items:center; min-width: 0; }
 .topbar-btn {
   width:42px; height:42px; border-radius:12px;
   display:grid; place-items:center;
@@ -559,10 +560,11 @@ a { color: inherit; text-decoration: none; }
   .topbar { padding: 0 10px; padding-top: env(safe-area-inset-top, 0px); }
   /* 手机端顶栏压成一行：藏副标题和分隔点、缩 brand、sync/theme 紧凑 */
   .brand-sub, .brand-sep { display: none; }
-  .brand-mark { width: 26px; height: 26px; border-radius: 8px; }
-  .brand-mark svg { width: 15px; height: 15px; }
+  .brand-mark { width: 24px; height: 24px; border-radius: 7px; }
+  .brand-mark svg { width: 14px; height: 14px; }
   .brand-main { font-size: 15px; }
   .brand-stack { gap: 0; }
+  .topbar-left { min-width: 0; overflow: hidden; }
   .sync-pill { height: 30px; padding: 0 8px; font-size: 11px; gap: 4px; }
   .sync-dot { width: 5px; height: 5px; }
   .topbar-btn { width: 30px; height: 30px; border-radius: 9px; }
@@ -615,7 +617,16 @@ a { color: inherit; text-decoration: none; }
 
 <!-- ============= 顶栏 ============= -->
 <div class="topbar">
-  <div class="topbar-left"></div>
+  <div class="topbar-left">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 3h14l-1 13H6L5 3Z"/><path d="M9 21h6"/><path d="M8 8h8"/></svg>
+      </div>
+      <div class="brand-stack">
+        <div class="brand-main">Workbench</div><span class="brand-sep">·</span><div class="brand-sub">糊涂蛋工作台</div>
+      </div>
+    </div>
+  </div>
   <div class="topbar-right">
     <div class="sync-pill" id="syncPill"><span class="sync-dot"></span><span id="syncLabel">已同步</span></div>
     <button class="topbar-btn" id="btnTheme" title="切换明暗">
@@ -652,16 +663,6 @@ a { color: inherit; text-decoration: none; }
 
     <!-- 首页 -->
     <section class="view is-active" id="view-home">
-      <div class="home-brand">
-        <div class="brand">
-          <div class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 3h14l-1 13H6L5 3Z"/><path d="M9 21h6"/><path d="M8 8h8"/></svg>
-          </div>
-          <div class="brand-stack">
-            <div class="brand-main">Workbench</div><span class="brand-sep">·</span><div class="brand-sub">糊涂蛋工作台</div>
-          </div>
-        </div>
-      </div>
       <div class="view-head">
         <div>
           <div class="view-title" id="homeGreet">早上好</div>
@@ -977,7 +978,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.10";
+const APP_VERSION = "V1.0.11";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
