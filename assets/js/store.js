@@ -60,7 +60,7 @@ WB.store = (function () {
         .from(table)
         .select('*')
         .eq('workspace_id', workspaceId)
-        .is('is_deleted', false);
+        .eq('is_deleted', false);
       if (!error && data) {
         rows = await Promise.all(data.map(r => decRow(r, encFields)));
         saveCache(table, rows);
@@ -178,7 +178,7 @@ WB.store = (function () {
             .from(t)
             .select('id')
             .eq('workspace_id', workspaceId)
-            .is('is_deleted', false)
+            .eq('is_deleted', false)
             .limit(1);
           if (!error && data && data.length > 0) return true;
         } catch (e) { /* 断网等，忽略，继续查别的表 */ }

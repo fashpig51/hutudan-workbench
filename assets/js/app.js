@@ -165,19 +165,17 @@ window.WB = window.WB || {};
   }
 
   function switchTo(key) {
-    const oldContent = E.$('#content');
-    const oldRoot = oldContent.firstElementChild;
-    if (oldRoot && oldRoot.__unsub) { try { oldRoot.__unsub(); } catch (e) {} }
-    // 把 content 容器整体替换掉，彻底清掉旧板块残留的事件监听器，避免切回来后列表空白
-    const content = oldContent.cloneNode(false);
-    oldContent.parentNode.replaceChild(content, oldContent);
+    const content = E.$('#content');
+    // 先拆掉旧板块的实时订阅，避免旧回调回来捣乱
+    if (content.__unsub) { try { content.__unsub(); content.__unsub = null; } catch (e) {} }
+    // 清空内容即可；旧 DOM 元素被移除后上面的事件监听器自然失效
+    content.innerHTML = '';
     current = key;
     E.$$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
     if (key === 'dashboard') WB.dashboard(content);
     else if (key === 'work') WB.sections.work(content);
     else if (key === 'study') WB.sections.study(content);
     else if (key === 'life') WB.sections.life(content);
-    if (content.firstElementChild && !content.firstElementChild.__unsub) content.firstElementChild.__unsub = function () {};
   }
 
   // 校验通过后真正进入（init 已在外部完成）
@@ -316,43 +314,56 @@ window.WB = window.WB || {};
       <div id="dash-goals"></div>
       <div class="section-head" style="margin-top:20px"><h2>每周复盘</h2></div>
       <div id="dash-weekly" class="weekly-box"></div>`;
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    function weekStart() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
     async function render() {
       try {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayLocal();
         const ws = weekStart();
         const todos = await WB.store.list('todos', ['title', 'note']);
         const todayTodos = todos.filter(r => r.kind === 'task' && !r.parent_id && r.due_date === today && !isDoneR(r));
-        E.$('#dash-todos .dash-body', root).innerHTML = todayTodos.length ? todayTodos.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)} ${r.due_time ? '(' + r.due_time + ')' : ''}</div>`).join('') : '<div class="dash-row muted">今天没有到期待办</div>';
+        const b1 = E.$('#dash-todos .dash-body', root);
+        if (b1) b1.innerHTML = todayTodos.length ? todayTodos.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)} ${r.due_time ? '(' + r.due_time + ')' : ''}</div>`).join('') : '<div class="dash-row muted">今天没有到期待办</div>';
 
         const habits = await WB.store.list('habits', ['name']);
         const todayCheckins = habits.filter(r => r.last_checkin === today);
-        E.$('#dash-habits .dash-body', root).innerHTML = habits.length ? `<div class="dash-row">${todayCheckins.length}/${habits.length} 已打卡</div>` + habits.map(r => `<div class="dash-row">${r.last_checkin === today ? '✅' : '⬜'} ${E.escapeHtml(r.name)}</div>`).join('') : '<div class="dash-row muted">还没有习惯</div>';
+        const b2 = E.$('#dash-habits .dash-body', root);
+        if (b2) b2.innerHTML = habits.length ? `<div class="dash-row">${todayCheckins.length}/${habits.length} 已打卡</div>` + habits.map(r => `<div class="dash-row">${r.last_checkin === today ? '✅' : '⬜'} ${E.escapeHtml(r.name)}</div>`).join('') : '<div class="dash-row muted">还没有习惯</div>';
 
         const notes = await WB.store.list('notes', ['title', 'content']);
         const todayNotes = notes.filter(r => r.daily_date === today || (r.created_at || '').slice(0, 10) === today);
-        E.$('#dash-notes .dash-body', root).innerHTML = todayNotes.length ? todayNotes.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)}</div>`).join('') : '<div class="dash-row muted">今天还没写笔记</div>';
+        const b3 = E.$('#dash-notes .dash-body', root);
+        if (b3) b3.innerHTML = todayNotes.length ? todayNotes.map(r => `<div class="dash-row">• ${E.escapeHtml(r.title)}</div>`).join('') : '<div class="dash-row muted">今天还没写笔记</div>';
 
         const focusTotal = todos.reduce((s, r) => s + (parseInt(r.focus_minutes) || 0), 0);
-        E.$('#dash-focus .dash-body', root).innerHTML = `<div class="dash-row">累计 ${focusTotal} 分钟</div>`;
+        const b4 = E.$('#dash-focus .dash-body', root);
+        if (b4) b4.innerHTML = `<div class="dash-row">累计 ${focusTotal} 分钟</div>`;
 
         const goals = await WB.store.list('goals', ['title', 'key_results']);
         const gEl = E.$('#dash-goals', root);
-        if (!goals.length) { gEl.innerHTML = '<div class="empty">还没有目标，去「学习」板块添加</div>'; }
-        else {
-          gEl.innerHTML = goals.filter(g => g.status !== 'done').map(g => {
-            let krs = []; try { krs = JSON.parse(g.key_results || '[]'); } catch (e) {}
-            const done = krs.filter(k => (k.current || 0) >= (k.target || 1)).length;
-            const pct = krs.length ? Math.round(done / krs.length * 100) : 0;
-            return `<div class="goal-row"><div class="goal-title">${E.escapeHtml(g.title)}</div><div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${pct}%</span></div></div>`;
-          }).join('');
+        if (gEl) {
+          if (!goals.length) { gEl.innerHTML = '<div class="empty">还没有目标，去「学习」板块添加</div>'; }
+          else {
+            gEl.innerHTML = goals.filter(g => g.status !== 'done').map(g => {
+              let krs = []; try { krs = JSON.parse(g.key_results || '[]'); } catch (e) {}
+              const done = krs.filter(k => (k.current || 0) >= (k.target || 1)).length;
+              const pct = krs.length ? Math.round(done / krs.length * 100) : 0;
+              return `<div class="goal-row"><div class="goal-title">${E.escapeHtml(g.title)}</div><div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${pct}%</span></div></div>`;
+            }).join('');
+          }
         }
 
         const weekDone = todos.filter(r => r.kind === 'task' && isDoneR(r) && (r.updated_at || '').slice(0, 10) >= ws).length;
         const weekNew = todos.filter(r => (r.created_at || '').slice(0, 10) >= ws).length;
-        E.$('#dash-weekly', root).innerHTML = `<div class="sum-grid"><div class="sum-card"><div class="sum-num">${weekDone}</div><div class="sum-lbl">本周完成</div></div><div class="sum-card"><div class="sum-num">${weekNew}</div><div class="sum-lbl">本周新建</div></div><div class="sum-card"><div class="sum-num">${todayCheckins.length}</div><div class="sum-lbl">今日打卡</div></div><div class="sum-card"><div class="sum-num">${focusTotal}</div><div class="sum-lbl">累计专注(分)</div></div></div>`;
-      } catch (e) { console.error('dashboard error', e); }
+        const wEl = E.$('#dash-weekly', root);
+        if (wEl) wEl.innerHTML = `<div class="sum-grid"><div class="sum-card"><div class="sum-num">${weekDone}</div><div class="sum-lbl">本周完成</div></div><div class="sum-card"><div class="sum-num">${weekNew}</div><div class="sum-lbl">本周新建</div></div><div class="sum-card"><div class="sum-num">${todayCheckins.length}</div><div class="sum-lbl">今日打卡</div></div><div class="sum-card"><div class="sum-num">${focusTotal}</div><div class="sum-lbl">累计专注(分)</div></div></div>`;
+      } catch (e) {
+        console.error('dashboard error', e);
+        const body = E.$('#dash-todos .dash-body', root);
+        if (body) body.innerHTML = '<div class="dash-row warn">总览加载失败，刷新试试：' + E.escapeHtml(e.message || '未知错误') + '</div>';
+      }
     }
-    function weekStart() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10); }
     const unsubs = [];
     for (const t of ['todos', 'habits', 'notes', 'goals']) {
       const enc = t === 'notes' ? ['title', 'content'] : t === 'habits' ? ['name'] : t === 'goals' ? ['title', 'key_results'] : ['title', 'note'];
