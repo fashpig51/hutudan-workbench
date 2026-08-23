@@ -11,7 +11,7 @@ WB.sections.work = function (root) {
   root.innerHTML = `
     <div class="section-head"><h2>工作 · 待办清单</h2></div>
     <div class="add-row">
-      <input id="w-title" placeholder="要做什么？支持“明天下午5点交报告”写法" maxlength="200">
+      <input id="w-title" placeholder="要做什么？支持“明天下午5点交报告”；添加后点任务右侧「加子步骤」拆分子任务" maxlength="200">
       <select id="w-priority">
         <option value="high">高</option>
         <option value="mid" selected>中</option>
@@ -24,6 +24,7 @@ WB.sections.work = function (root) {
         <option value="task">任务</option>
         <option value="event">纪念日</option>
       </select>
+      <select id="w-parent" title="作为哪个任务的子步骤（可选）"><option value="">无（独立任务）</option></select>
       <button id="w-add" class="btn-primary">添加</button>
     </div>
     <div class="tool-row">
@@ -175,7 +176,7 @@ WB.sections.work = function (root) {
         ${kids.length ? `<div class="prog"><div class="prog-bar" style="width:${pct}%"></div><span class="prog-txt">${doneK}/${kids.length} ${pct}%</span></div>` : ''}
       </div>
       <span class="tag tag-${r.priority}">${r.priority === 'high' ? '高' : r.priority === 'low' ? '低' : '中'}</span>
-      ${kids.length ? `<button class="mini-btn" data-toggle="${r.id}">${isExp ? '收起' : '子任务(' + kids.length + ')'}</button>` : ''}
+      <button class="mini-btn" data-toggle="${r.id}">${isExp ? '收起' : (kids.length ? '子任务(' + kids.length + ')' : '加子步骤')}</button>
       <button class="mini-btn" data-focus="${r.id}">专注</button>
       <button class="mini-btn" data-sched>排程</button>
       <button class="del" data-id="${r.id}" title="删除">✕</button>
@@ -186,8 +187,13 @@ WB.sections.work = function (root) {
   function renderList(rows) {
     const ul = E.$('#w-list', root);
     ul.innerHTML = '';
-    if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有待办，加一条吧</li>')); return; }
-    rows.forEach(r => ul.appendChild(itemEl(r)));
+    try {
+      if (rows.length === 0) { ul.appendChild(E.el('<li class="empty">还没有待办，加一条吧；已有任务可点右侧「加子步骤」拆分子任务</li>')); return; }
+      rows.forEach(r => ul.appendChild(itemEl(r)));
+    } catch (err) {
+      ul.appendChild(E.el('<li class="empty">列表渲染出错了，刷新试试</li>'));
+      console.error('renderList error', err);
+    }
   }
 
   function renderTagChips() {
@@ -223,7 +229,7 @@ WB.sections.work = function (root) {
   function overlap(a, b) {
     if (!a.scheduled_start || !b.scheduled_start) return false;
     const ae = a.scheduled_end || '23:59', be = b.scheduled_end || '23:59';
-    return a.scheduled_start < ae && b.scheduled_start < be;
+    return a.scheduled_start < be && b.scheduled_start < ae;
   }
   function renderSchedule(rows) {
     const el = E.$('#w-schedule', root);
@@ -313,6 +319,12 @@ WB.sections.work = function (root) {
     allRows = (await WB.store.list('todos', ['title', 'note'])).map(norm);
     dueMapCache = {};
     allRows.forEach(t => { if (t.due_date) { (dueMapCache[t.due_date] = dueMapCache[t.due_date] || []).push(t); } });
+    const parentSel = E.$('#w-parent', root);
+    if (parentSel) {
+      const cur = parentSel.value;
+      parentSel.innerHTML = '<option value="">无（独立任务）</option>' + allRows.filter(r => r.kind === 'task' && !r.parent_id).map(r => `<option value="${r.id}">${E.escapeHtml(r.title)}</option>`).join('');
+      parentSel.value = cur;
+    }
     renderTagChips();
     if (view === 'calendar') { renderCalendar(dueMapCache); renderDayList(); }
     else if (view === 'kanban') { renderKanban(allRows); }
@@ -342,6 +354,7 @@ WB.sections.work = function (root) {
     const due = E.$('#w-due', root).value || smart.due || null;
     const time = E.$('#w-duetime', root).value || smart.time || null;
     const finalTitle = (smart.due || smart.time) ? smart.title : title;
+    const parentId = E.$('#w-parent', root).value || '';
     await WB.store.upsert('todos', ['title', 'note'], {
       title: finalTitle,
       priority: E.$('#w-priority', root).value,
@@ -351,7 +364,7 @@ WB.sections.work = function (root) {
       kind: E.$('#w-kind', root).value,
       kanban_status: 'todo',
       status: 'active',
-      parent_id: ''
+      parent_id: parentId
     });
     E.$('#w-title', root).value = '';
     E.$('#w-due', root).value = ''; E.$('#w-duetime', root).value = ''; E.$('#w-tags', root).value = '';
@@ -463,7 +476,8 @@ WB.sections.work = function (root) {
     }
   });
 
-  WB.store.subscribe('todos', ['title', 'note'], render);
+  const unsub = WB.store.subscribe('todos', ['title', 'note'], render);
+  root.__unsub = unsub;
   render();
 };
 
@@ -553,8 +567,9 @@ WB.sections.study = function (root) {
     if (e.target.matches('#b-list .del')) { await WB.store.remove('books', e.target.dataset.id); renderBooks(); }
   });
 
-  WB.store.subscribe('notes', ['title', 'content'], renderNotes);
-  WB.store.subscribe('books', ['title', 'author'], renderBooks);
+  const unsubNotes = WB.store.subscribe('notes', ['title', 'content'], renderNotes);
+  const unsubBooks = WB.store.subscribe('books', ['title', 'author'], renderBooks);
+  root.__unsub = function () { try { unsubNotes(); unsubBooks(); } catch (e) {} };
   renderNotes();
   renderBooks();
 };
@@ -620,6 +635,7 @@ WB.sections.life = function (root) {
     if (e.target.matches('#h-list .del')) { await WB.store.remove('habits', e.target.dataset.id); renderHabits(); }
   });
 
-  WB.store.subscribe('habits', ['name'], renderHabits);
+  const unsubHabits = WB.store.subscribe('habits', ['name'], renderHabits);
+  root.__unsub = unsubHabits;
   renderHabits();
 };

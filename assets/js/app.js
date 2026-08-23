@@ -69,6 +69,7 @@ window.WB = window.WB || {};
 
   // ---------- 到期提醒（页面开着时弹横幅）----------
   let reminded = new Set();
+  function todayLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function isDoneR(r) { return r.kanban_status === 'done' || r.status === 'done'; }
   function showReminder(r) {
     let b = document.getElementById('remindBar');
@@ -81,7 +82,7 @@ window.WB = window.WB || {};
     try {
       const rows = await WB.store.list('todos', ['title', 'note']);
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
+      const todayStr = todayLocal();
       const nowMin = now.getHours() * 60 + now.getMinutes();
       for (const r of rows) {
         if (r.kind === 'event' || isDoneR(r) || !r.due_date) continue;
@@ -95,7 +96,7 @@ window.WB = window.WB || {};
       }
     } catch (e) { /* 忽略 */ }
   }
-  function startReminderLoop() { checkReminders(); setInterval(checkReminders, 60000); }
+  function startReminderLoop() { checkReminders(); setInterval(checkReminders, 15000); }
 
   function buildShell() {
     const sidebar = E.$('#sidebar');
@@ -148,13 +149,16 @@ window.WB = window.WB || {};
   }
 
   function switchTo(key) {
+    const content = E.$('#content');
+    const oldRoot = content.firstElementChild;
+    if (oldRoot && oldRoot.__unsub) { try { oldRoot.__unsub(); } catch (e) {} }
+    content.innerHTML = '';
     current = key;
     E.$$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
-    const content = E.$('#content');
-    content.innerHTML = '';
     if (key === 'work') WB.sections.work(content);
     else if (key === 'study') WB.sections.study(content);
     else if (key === 'life') WB.sections.life(content);
+    if (content.firstElementChild && !content.firstElementChild.__unsub) content.firstElementChild.__unsub = function () {};
   }
 
   // 校验通过后真正进入（init 已在外部完成）

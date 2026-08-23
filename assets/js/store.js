@@ -129,8 +129,8 @@ WB.store = (function () {
 
   // 实时订阅：这台改了，立刻推给其他设备
   function subscribe(table, encFields, cb) {
-    if (!sb) return;
-    sb.channel('wb_' + table + '_' + workspaceId)
+    if (!sb) return function () {};
+    const channel = sb.channel('wb_' + table + '_' + workspaceId)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: table, filter: 'workspace_id=eq.' + workspaceId },
         async (payload) => {
@@ -149,6 +149,7 @@ WB.store = (function () {
           cb(rows);
         })
       .subscribe();
+    return function () { try { sb.removeChannel(channel); } catch (e) {} };
   }
 
   // 心跳：每次打开应用戳一下数据库，给「7天自动暂停」加一道保险
