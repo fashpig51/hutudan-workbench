@@ -654,6 +654,9 @@ a { color: inherit; text-decoration: none; }
     <button class="topbar-btn" id="btnTheme" title="切换明暗">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIcon"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
     </button>
+    <button class="topbar-btn" id="btnLogout" title="退出登录" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+    </button>
   </div>
 </div>
 
@@ -1302,6 +1305,26 @@ async function syncLoad() {
     console.warn("load fail", e);
     setSyncUI("offline");
   }
+}
+
+/* ---------------------- 自动同步轮询 ---------------------- */
+let _autoSyncTimer = null;
+function isEditingNow() {
+  const a = document.activeElement;
+  if (!a) return false;
+  const t = a.tagName;
+  return t === "INPUT" || t === "TEXTAREA" || a.isContentEditable === true;
+}
+// 每隔几秒悄悄去云端看一眼；别的设备改了，这台最多几秒自动显出来。
+// 正在输入框打字时不打断（等失焦再刷），数据变化时才刷新界面。
+function startAutoSync() {
+  if (_autoSyncTimer) clearInterval(_autoSyncTimer);
+  _autoSyncTimer = setInterval(async () => {
+    if (!state.userId) return;
+    const before = JSON.stringify(state.data);
+    await syncLoad();
+    if (JSON.stringify(state.data) !== before && !isEditingNow()) render();
+  }, 8000);
 }
 
 /* ---------------------- 路由 ---------------------- */
@@ -2213,6 +2236,25 @@ async function bootLogin() {
     $("#loginPass").placeholder = "输入口令解锁";
     $("#loginPass2").style.display = "none";
   }
+  // 记住登录：若存了口令，直接尝试进入，免去重复输入
+  const rem = localStorage.getItem("wb2_remember_pass");
+  if (rem) {
+    const ok = await doLogin(rem, true);
+    if (ok) return;
+    // 云端不可达但本地有缓存：用本地数据进入（离线模式）
+    if (loadLocal()) {
+      if (state.data.todos.length || state.data.notes.length || state.data.folders.length) {
+        $("#loginHost").classList.add("hidden");
+        $("#loginPass").value = "";
+        applyTheme(loadTheme());
+        render();
+        afterEnter();
+        toast("离线模式 · 用本地数据进入", "is-warn");
+        return;
+      }
+    }
+    $("#loginPass").value = "";
+  }
   $("#loginHost").dataset.step = "input";
 }
 $("#loginPass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnLogin").click(); });
@@ -2223,10 +2265,8 @@ $("#loginEye").addEventListener("pointerdown", (e) => {
   inp.type = inp.type === "password" ? "text" : "password";
   inp.focus();
 });
-$("#btnLogin").onclick = async () => {
-  const p1 = $("#loginPass").value;
-  if (p1.length < 4) { $("#loginErr").textContent = "口令至少 4 位"; return; }
-
+async function doLogin(p1, isAuto) {
+  if (!p1 || p1.length < 4) { if (!isAuto) $("#loginErr").textContent = "口令至少 4 位"; return false; }
   const uidHash = await userIdFromPass(p1);
   state.pass = p1;
   state.userId = uidHash;
@@ -2243,20 +2283,44 @@ $("#btnLogin").onclick = async () => {
       await syncLoad();
       saveLocal();
       render();
+      afterEnter();
       toast("已创建新工作台", "is-good");
-      return;
+      return true;
     }
     // 没数据又没点创建：挡住，提示并露出创建按钮
-    $("#loginErr").textContent = "口令不对，或这份数据还没建过";
-    $("#btnCreateSpace").style.display = "block";
-    return;
+    if (!isAuto) {
+      $("#loginErr").textContent = "口令不对，或这份数据还没建过";
+      $("#btnCreateSpace").style.display = "block";
+    }
+    return false;
   }
   $("#loginHost").classList.add("hidden");
   applyTheme(loadTheme());
   await syncLoad();
   saveLocal();
   render();
-  toast("已解锁", "is-good");
+  afterEnter();
+  if (!isAuto) toast("已解锁", "is-good");
+  return true;
+}
+
+// 进入成功后：记住登录口令 + 显示退出按钮 + 启动自动同步
+function afterEnter() {
+  try { localStorage.setItem("wb2_remember_pass", state.pass); } catch (e) {}
+  const bl = $("#btnLogout"); if (bl) bl.style.display = "inline-flex";
+  startAutoSync();
+}
+
+$("#btnLogin").onclick = async () => { await doLogin($("#loginPass").value, false); };
+
+$("#btnLogout").onclick = () => {
+  try { localStorage.removeItem("wb2_remember_pass"); } catch (e) {}
+  try { localStorage.removeItem("wb2_last_uid"); } catch (e) {}
+  if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
+  const bl = $("#btnLogout"); if (bl) bl.style.display = "none";
+  state.pass = null; state.userId = null;
+  bootLogin();
+  toast("已退出登录", "is-good");
 };
 $("#btnCreateSpace").onclick = () => {
   $("#loginPass2").style.display = "block";
