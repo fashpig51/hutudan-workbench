@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F5F1E8" />
 <title>Workbench · 糊涂蛋工作台</title>
-<script src="assets/js/config.js?v=V1.0.28"></script>
+<script src="assets/js/config.js?v=V1.0.29"></script>
 <style>
 /* ============================================================
    Workbench V2 — 单文件全内联版本
@@ -354,6 +354,7 @@ a { color: inherit; text-decoration: none; }
 .note-card .time { font-size: 11px; color: var(--ink-muted); margin-top: 6px; }
 .note-card .icon-row { display:inline-flex; align-items:center; gap: 4px; margin-left: 6px; }
 .note-card .icon-row svg { width: 11px; height: 11px; color: var(--orange); }
+.note-card-ph { display: none; }
 .note-del { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center; color: var(--ink-muted); background: transparent; opacity: 0; transition: opacity 0.15s, background 0.15s, color 0.15s; }
 .note-del svg { width: 15px; height: 15px; }
 .note-card:hover .note-del { opacity: 1; }
@@ -555,7 +556,7 @@ a { color: inherit; text-decoration: none; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .stat-num { font-size: 40px; }
   .notes-layout { grid-template-columns: 1fr; height: auto; }
-  .notes-layout .notes-folder-list, .notes-layout .notes-list { max-height: 280px; }
+  .notes-layout .notes-list { max-height: none; }
   /* 手机端进笔记：卡片撑满屏幕边边、去外层白边（方案A：父层main左右padding清零贴边，不用负边距，根治iOS左右滑） */
   .main:has(.notes-layout.show-editor) { padding-left: 0; padding-right: 0; }
   .notes-layout.show-editor .note-editor { height: calc(100vh - var(--topbar-h)); border-radius: 0; border-left: none; border-right: none; }
@@ -595,6 +596,14 @@ a { color: inherit; text-decoration: none; }
   .note-folder-move { font-size: 13px; }
   /* 手机端首页只藏"待办事项""今日专注"两张卡，电脑端保留 */
   .home-hero .stat-card { display: none; }
+  /* 手机端卡片按参考图风格：宽松瘦长、文字舒展（仅手机，电脑端不动） */
+  .card { padding: 20px; border-radius: 18px; }
+  .stat-card { padding: 18px; border-radius: 18px; min-height: 150px; }
+  .note-card { padding: 18px; border-radius: 16px; }
+  .note-card .title { font-size: 16px; margin-bottom: 6px; }
+  .note-card .preview { font-size: 13px; line-height: 1.6; -webkit-line-clamp: 4; }
+  .note-card .time { font-size: 12px; margin-top: 8px; }
+  .note-card-ph { display: flex; align-items: center; justify-content: center; border: 1.5px dashed var(--line); color: var(--ink-muted); font-size: 13px; }
   /* 手机端笔记全屏(B方案)：藏顶栏那行 + 显示悬浮退出X */
   .btn-fullscreen { display: grid; }
   .notes-layout.show-fullscreen .note-editor-head { display: none; }
@@ -1777,7 +1786,7 @@ function renderNotes() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
       </button>
     </div>
-  `).join("");
+  `).join("") + `<div class="note-card note-card-ph">已显示全部 ${list.length} 篇</div>`;
   body.querySelectorAll("[data-note]").forEach(el => el.onclick = () => {
     state.select.noteId = el.dataset.note;
     renderNoteEditor();
