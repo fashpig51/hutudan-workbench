@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F5F1E8" />
 <title>Workbench · 糊涂蛋工作台</title>
-<script src="assets/js/config.js?v=V1.0.29"></script>
+<script src="assets/js/config.js?v=V1.0.30"></script>
 <style>
 /* ============================================================
    Workbench V2 — 单文件全内联版本
@@ -474,6 +474,28 @@ a { color: inherit; text-decoration: none; }
 .recur-row { display:flex; gap: 6px; flex-wrap: wrap; }
 .recur-opt { padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 12px; font-weight: 600; cursor:pointer; color: var(--ink-soft); }
 .recur-opt.is-active { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
+
+/* ---------- 新建待办整页重设计（V1.0.30） ---------- */
+.td-sheet { display:flex; flex-direction:column; gap: 22px; }
+.td-block { display:flex; flex-direction:column; gap: 9px; }
+.td-cap { font-size: 13px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.02em; }
+.td-title { width:100%; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 17px; font-weight: 600; color: var(--ink); }
+.td-title::placeholder { color: var(--ink-muted); font-weight: 500; }
+.td-desc { width:100%; padding: 14px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 15px; line-height: 1.6; color: var(--ink); min-height: 92px; resize: vertical; }
+.td-field { width:100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-size: 15px; color: var(--ink); }
+.td-prio { gap: 10px; }
+.td-prio .prio-opt { padding: 14px 0; border-radius: 14px; font-size: 14px; font-weight: 600; display:flex; align-items:center; justify-content:center; gap: 7px; }
+.td-prio .prio-opt .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.td-prio .prio-opt.p1 .dot { background: #ef4444; }
+.td-prio .prio-opt.p2 .dot { background: #f59e0b; }
+.td-prio .prio-opt.p3 .dot { background: #3b82f6; }
+.td-tags { padding: 12px; min-height: 54px; border-radius: 14px; gap: 8px; }
+.td-tags input { font-size: 14px; padding: 4px; }
+.td-recur { gap: 8px; }
+.td-recur .recur-opt { padding: 10px 16px; border-radius: 999px; font-size: 13px; }
+/* 底部操作区：安全区兜底 + 按钮加高，不贴屏幕底 */
+.drawer-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+.drawer-foot .btn { flex: 1; height: 50px; font-size: 15px; font-weight: 700; border-radius: 14px; }
 
 /* ---------- 设置 ---------- */
 .settings-list { display:flex; flex-direction:column; gap: 14px; max-width: 760px; }
@@ -1583,28 +1605,36 @@ function openTodoDrawer(t) {
   };
   $("#drawerTitle").textContent = t ? "编辑待办" : "新建待办";
   $("#drawerBody").innerHTML = `
-    <div class="field"><label>标题</label><input id="fTitle" placeholder="要做的事…" value="${escHtml(editingTodo.title)}" /></div>
-    <div class="field"><label>描述</label><textarea id="fDesc" placeholder="可选详情…">${escHtml(editingTodo.desc||"")}</textarea></div>
-    <div class="field-row">
-      <div class="field"><label>截止时间</label><input id="fDue" type="datetime-local" value="${editingTodo.dueAt? fmtDate(editingTodo.dueAt).replace(' ','T').slice(0,16):""}" /></div>
-      <div class="field"><label>优先级</label>
-        <div class="prio-row">
-          <div class="prio-opt ${editingTodo.priority===1?'is-active':''}" data-prio="1">高</div>
-          <div class="prio-opt ${editingTodo.priority===2?'is-active':''}" data-prio="2">中</div>
-          <div class="prio-opt ${editingTodo.priority===3?'is-active':''}" data-prio="3">低</div>
+    <div class="td-sheet">
+      <div class="td-block">
+        <input id="fTitle" class="td-title" placeholder="要做的事…" value="${escHtml(editingTodo.title)}" />
+        <textarea id="fDesc" class="td-desc" placeholder="加点细节（可选）">${escHtml(editingTodo.desc||"")}</textarea>
+      </div>
+      <div class="td-block">
+        <div class="td-cap">截止时间</div>
+        <input id="fDue" class="td-field" type="datetime-local" value="${editingTodo.dueAt? fmtDate(editingTodo.dueAt).replace(' ','T').slice(0,16):""}" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">优先级</div>
+        <div class="prio-row td-prio">
+          <div class="prio-opt p1 ${editingTodo.priority===1?'is-active':''}" data-prio="1"><span class="dot"></span>高</div>
+          <div class="prio-opt p2 ${editingTodo.priority===2?'is-active':''}" data-prio="2"><span class="dot"></span>中</div>
+          <div class="prio-opt p3 ${editingTodo.priority===3?'is-active':''}" data-prio="3"><span class="dot"></span>低</div>
         </div>
       </div>
-    </div>
-    <div class="field"><label>标签</label>
-      <div class="tag-input-row" id="fTagsHost">${(editingTodo.tags||[]).map(t => `<span class="tag-chip">${escHtml(t)}<button data-rmtag="${escHtml(t)}">×</button></span>`).join("")}<input id="fTagInput" placeholder="回车添加" /></div>
-      <div class="tag-suggest" id="fTagSuggest"></div>
-    </div>
-    <div class="field"><label>重复</label>
-      <div class="recur-row">
-        <div class="recur-opt ${editingTodo.recurring==='none'?'is-active':''}" data-recur="none">不重复</div>
-        <div class="recur-opt ${editingTodo.recurring==='daily'?'is-active':''}" data-recur="daily">每天</div>
-        <div class="recur-opt ${editingTodo.recurring==='weekly'?'is-active':''}" data-recur="weekly">每周</div>
-        <div class="recur-opt ${editingTodo.recurring==='monthly'?'is-active':''}" data-recur="monthly">每月</div>
+      <div class="td-block">
+        <div class="td-cap">标签</div>
+        <div class="tag-input-row td-tags" id="fTagsHost">${(editingTodo.tags||[]).map(t => `<span class="tag-chip">${escHtml(t)}<button data-rmtag="${escHtml(t)}">×</button></span>`).join("")}<input id="fTagInput" placeholder="回车添加标签" /></div>
+        <div class="tag-suggest" id="fTagSuggest"></div>
+      </div>
+      <div class="td-block">
+        <div class="td-cap">重复</div>
+        <div class="recur-row td-recur">
+          <div class="recur-opt ${editingTodo.recurring==='none'?'is-active':''}" data-recur="none">不重复</div>
+          <div class="recur-opt ${editingTodo.recurring==='daily'?'is-active':''}" data-recur="daily">每天</div>
+          <div class="recur-opt ${editingTodo.recurring==='weekly'?'is-active':''}" data-recur="weekly">每周</div>
+          <div class="recur-opt ${editingTodo.recurring==='monthly'?'is-active':''}" data-recur="monthly">每月</div>
+        </div>
       </div>
     </div>
   `;
@@ -2251,8 +2281,6 @@ async function bootLogin() {
   $("#btnLogin").textContent = "进入";
   $("#btnCreateSpace").style.display = "none";
   state.createMode = false;
-  await syncLoad();
-  // 看看是否有缓存的 userId（口令为本地尝试用）
   const cachedUid = localStorage.getItem("wb2_last_uid");
   if (cachedUid) {
     state.userId = cachedUid;
@@ -2262,12 +2290,32 @@ async function bootLogin() {
     $("#loginPass").placeholder = "输入口令解锁";
     $("#loginPass2").style.display = "none";
   }
-  // 记住登录：若存了口令，直接尝试进入，免去重复输入
+  // 记住登录：本地有缓存就瞬时进入，云端在后台静默同步，不阻塞首屏
   const rem = localStorage.getItem("wb2_remember_pass");
+  if (rem && loadLocal() && (state.data.todos.length || state.data.notes.length || state.data.folders.length)) {
+    state.pass = rem;
+    $("#loginHost").classList.add("hidden");
+    applyTheme(loadTheme());
+    render();
+    afterEnter();   // 启动自动同步，云端在后台拉最新
+    // 后台静默核对口令并补拉最新（不阻塞用户可见的首屏）
+    (async () => {
+      try {
+        const ok = await doLoginSilent(rem);
+        if (!ok) {
+          // 口令已不对（云端这份数据没了）：退出记住登录，不打断当前浏览，提示用户重新登录
+          localStorage.removeItem("wb2_remember_pass");
+          toast("云端未找到该数据，已切本地模式；要同步请重新登录", "is-warn");
+        }
+      } catch (e) {}
+    })();
+    return;
+  }
+  // 没记住登录 / 本地无缓存数据：走原流程（首次用必须等云端）
+  await syncLoad();
   if (rem) {
     const ok = await doLogin(rem, true);
     if (ok) return;
-    // 云端不可达但本地有缓存：用本地数据进入（离线模式）
     if (loadLocal()) {
       if (state.data.todos.length || state.data.notes.length || state.data.folders.length) {
         $("#loginHost").classList.add("hidden");
@@ -2282,6 +2330,15 @@ async function bootLogin() {
     $("#loginPass").value = "";
   }
   $("#loginHost").dataset.step = "input";
+}
+// 后台静默登录：仅核对口令对不对，不弹提示、不打断首屏；真实数据同步交给已启动的自动同步
+async function doLoginSilent(p1) {
+  if (!p1 || p1.length < 4) return false;
+  const uidHash = await userIdFromPass(p1);
+  state.pass = p1;
+  state.userId = uidHash;
+  localStorage.setItem("wb2_last_uid", uidHash);
+  return await tryUnlock(p1);
 }
 $("#loginPass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnLogin").click(); });
 $("#loginPass2").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnLogin").click(); });
