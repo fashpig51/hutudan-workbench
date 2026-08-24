@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#F5F1E8" />
 <title>Workbench · 糊涂蛋工作台</title>
+<script src="assets/js/config.js?v=V1.0.28"></script>
 <style>
 /* ============================================================
    Workbench V2 — 单文件全内联版本
@@ -1005,7 +1006,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = (window.WB && WB.config && WB.config.appVersion) || "V1.0.20";
+const APP_VERSION = (window.WB && WB.config && WB.config.appVersion) || "V1.0.28";
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1205,23 +1206,38 @@ async function supaFetch(path, opts) {
   }, opts.headers || {});
   const url = SUPA_URL + path;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 6000);
+  const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
     const r = await fetch(url, Object.assign({}, opts, { headers: h, signal: ctrl.signal }));
     clearTimeout(timer);
     if (!r.ok) {
       console.warn("[wb2] cloud " + r.status + " · " + path);
-      markOffline("云端 " + r.status);
+      _onSyncFail("云端 " + r.status);
       return null;
     }
     const ct = r.headers.get("content-type") || "";
+    _onSyncOk();
     return ct.includes("json") ? await r.json() : await r.text();
   } catch (e) {
     clearTimeout(timer);
     console.warn("[wb2 offline] " + (e && e.message) + " · " + path);
-    markOffline("离线模式（云端未联通）");
+    _onSyncFail("离线模式（云端未联通）");
     return null;
   }
+}
+// 同步健康度：单次 fetch 失败不直接判离线，连续 3 次才降级；任意一次成功即自愈
+let _failStreak = 0;
+function _onSyncOk() {
+  _failStreak = 0;
+  if (!state.cloudOk) {
+    state.cloudOk = true;
+    state.notifiedOffline = false;
+  }
+}
+function _onSyncFail(reason) {
+  _failStreak++;
+  if (_failStreak >= 3) markOffline(reason);   // 连续 3 次才判离线
+  // 偶发 1~2 次抖动：不锁死、不打扰界面，下次成功自动恢复
 }
 function markOffline(reason) {
   if (state.cloudOk) {
@@ -1243,9 +1259,8 @@ async function supaLoad(table) {
 }
 /** 用 upsert 全量同步：先删当前用户的，再批量插入（数据总量小，安全） */
 async function supaPush(table, rows) {
-  if (state.cloudOk === false) return;          // 离线不写云端
   const del = await supaFetch(`/rest/v1/${table}?user_id=eq.${state.userId}`, { method: "DELETE" });
-  if (rows.length && del === null && state.cloudOk === false) return;
+  if (rows.length && del === null) return;   // 删除失败就不写，避免脏写
   if (rows.length) {
     await supaFetch(`/rest/v1/${table}`, {
       method: "POST",
@@ -1265,7 +1280,7 @@ function scheduleSync() {
   }, 800);
 }
 async function syncAll() {
-  if (!state.userId || state.syncing || !state.cloudOk) return;
+  if (!state.userId || state.syncing) return;
   state.syncing = true; setSyncUI("syncing");
   try {
     saveLocal();
@@ -1275,16 +1290,17 @@ async function syncAll() {
     state.data.folders = state.data.folders.slice(0, 20);
     await supaPush("wb2_folders_v1", state.data.folders.map(f => ({...f, user_id: state.userId})));
     await supaPush("wb2_pomo_projects", state.data.pomoProjects.map(p => ({...p, user_id: state.userId})));
+    _onSyncOk();
     setSyncUI("ok");
   } catch (e) {
     console.warn("sync fail", e);
-    setSyncUI("offline");
+    _onSyncFail("同步出错");
   } finally {
     state.syncing = false;
   }
 }
 async function syncLoad() {
-  if (!state.userId || !state.cloudOk) { setSyncUI("offline"); return; }
+  if (!state.userId) return;
   setSyncUI("syncing", "拉取中…");
   try {
     const [ts, ns, ps, fs, pp] = await Promise.all([
@@ -1300,10 +1316,11 @@ async function syncLoad() {
     if (fs.length) state.data.folders = fs;
     if (pp.length) state.data.pomoProjects = pp;
     saveLocal();
+    _onSyncOk();
     setSyncUI("ok");
   } catch (e) {
     console.warn("load fail", e);
-    setSyncUI("offline");
+    _onSyncFail("拉取失败");
   }
 }
 
@@ -2317,10 +2334,7 @@ $("#btnLogout").onclick = () => {
   try { localStorage.removeItem("wb2_remember_pass"); } catch (e) {}
   try { localStorage.removeItem("wb2_last_uid"); } catch (e) {}
   if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
-  const bl = $("#btnLogout"); if (bl) bl.style.display = "none";
-  state.pass = null; state.userId = null;
-  bootLogin();
-  toast("已退出登录", "is-good");
+  location.reload();   // 刷新页面：所有 JS 状态彻底清空，重新走登录（最稳的退出）
 };
 $("#btnCreateSpace").onclick = () => {
   $("#loginPass2").style.display = "block";
