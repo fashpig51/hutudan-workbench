@@ -183,19 +183,40 @@ window.WB = window.WB || {};
   // 校验通过后真正进入（init 已在外部完成）
   async function enterApp(pass, cloud) {
     E.setSync('wait', '连接中…');
+    // 云端写入失败时的提醒：明确告诉用户没存上云端，已留本机待补传
+    WB.store.setSyncIssueHandler(() => {
+      E.toast('云端没存上，已留在本机，联网后自动补传');
+    });
+    if (cloud) {
+      E.setSync('on', '云端同步中');
+      await WB.store.pullAll();      // 进主页先拉一次云端，确保看到别的设备刚加的
+      await WB.store.flushPending(); // 补传之前没传上的
+    }
     buildShell();
     switchTo('dashboard');
     startReminderLoop();
     E.$('#passModal').style.display = 'none';
     // 心跳（给 Supabase 7天暂停加保险）放到进主页之后异步跑，不阻塞进入
     if (cloud) {
-      E.setSync('on', '云端同步中');
+      setupGlobalSync(); // 全局实时订阅：任一设备改动都推给本机并刷新当前页
+      // 定时补传：开着应用时若网络恢复，自动把漏传的数据补上去
+      setInterval(() => { if (WB.store.hasCloud()) WB.store.flushPending().catch(() => {}); }, 20000);
       WB.store.heartbeat().then(() => {
         setTimeout(() => E.setSync('on', '已同步'), 300);
       }).catch(() => {});
     } else {
       E.setSync('off', '纯本地模式');
     }
+  }
+
+  // 实时订阅：覆盖所有表，任一设备改动就刷新当前页
+  function setupGlobalSync() {
+    WB.store.ALL_TABLES.forEach(t => {
+      WB.store.subscribe(t, WB.store.ENC_FIELDS[t], refreshCurrent);
+    });
+  }
+  function refreshCurrent() {
+    if (current) switchTo(current);
   }
 
   function showPassModal() {
@@ -602,12 +623,6 @@ window.WB = window.WB || {};
       } catch (e) { E.toast('导出失败：' + (e.message || e)); }
     }
 
-    const unsubs = [];
-    for (const t of ['todos', 'habits', 'notes', 'goals', 'time_logs']) {
-      const enc = t === 'notes' ? ['title', 'content'] : t === 'habits' ? ['name'] : t === 'goals' ? ['title', 'key_results'] : t === 'time_logs' ? ['note'] : ['title', 'note'];
-      unsubs.push(WB.store.subscribe(t, enc, render));
-    }
-    root.__unsub = function () { unsubs.forEach(u => { try { u(); } catch (e) {} }); };
     render();
   };
 

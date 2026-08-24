@@ -6,10 +6,22 @@
 window.WB = window.WB || {};
 WB.store = (function () {
   const CACHE_PREFIX = 'wb_cache_';
+  // 每张表的加密字段（与 app.js 的 TABLES 保持一致）
+  const ENC_FIELDS = {
+    todos: ['title', 'note'],
+    notes: ['title', 'content'],
+    books: ['title', 'author', 'review'],
+    habits: ['name'],
+    goals: ['title', 'key_results'],
+    time_logs: ['note'],
+    moods: ['note'],
+    health: ['note']
+  };
   let sb = null;            // supabase 客户端
   let workspaceId = null;   // 数据分区
   let passphrase = null;
   let cfg = {};
+  let onSyncIssue = null;  // 云端写入失败时的提醒回调（由界面注册）
 
   function cacheKey(table) { return CACHE_PREFIX + workspaceId + '_' + table; }
   function loadCache(table) {
@@ -63,24 +75,73 @@ WB.store = (function () {
     return out;
   }
 
-  // 取列表：先本地缓存(秒开)，再拉云端合并
+  // 去掉内部标记（_pending 等），避免上传时报"找不到字段"
+  function stripMeta(row) {
+    const r = Object.assign({}, row);
+    delete r._pending;
+    return r;
+  }
+  // 标记某条没传上云端，留待自动补传
+  function markPending(table, id) {
+    const cache = loadCache(table);
+    const it = cache.find(r => r.id === id);
+    if (it) { it._pending = true; saveCache(table, cache); }
+  }
+
+  // 取列表：先本地缓存(秒开)，再拉云端合并；保留本地未同步(_pending)项
   async function list(table, encFields) {
     let rows = loadCache(table);
     if (sb) {
-      const { data, error } = await sb
-        .from(table)
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .eq('is_deleted', false);
-      if (!error && data) {
-        rows = await Promise.all(data.map(r => decRow(r, encFields)));
-        saveCache(table, rows);
-      }
+      try {
+        const { data, error } = await sb
+          .from(table)
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .eq('is_deleted', false);
+        if (!error && data) {
+          const remote = await Promise.all(data.map(r => decRow(r, encFields || ENC_FIELDS[table] || [])));
+          const map = {};
+          remote.forEach(r => { if (r && r.id) map[r.id] = r; });
+          rows.forEach(r => { if (r && r._pending && !map[r.id]) map[r.id] = r; });
+          rows = Object.values(map);
+          saveCache(table, rows);
+        }
+      } catch (e) { /* 断网忽略，用本地 */ }
     }
     return rows;
   }
 
-  // 新增/修改：本地先写，云端再写
+  // 进主页时把云端最新数据全拉一遍，覆盖本地缓存（保留未同步项）
+  async function pullAll() {
+    if (!sb) return;
+    for (const table of Object.keys(ENC_FIELDS)) {
+      await list(table, ENC_FIELDS[table]);
+    }
+  }
+
+  // 把之前没传上云端的数据自动补传
+  async function flushPending() {
+    if (!sb) return 0;
+    let count = 0;
+    for (const table of Object.keys(ENC_FIELDS)) {
+      const cache = loadCache(table);
+      let changed = false;
+      for (const it of cache) {
+        if (it._pending) {
+          try {
+            const payload = await encRow(it, ENC_FIELDS[table]);
+            delete payload._pending;
+            const { error } = await sb.from(table).upsert(payload);
+            if (!error) { delete it._pending; count++; changed = true; }
+          } catch (e) { /* 下次再说 */ }
+        }
+      }
+      if (changed) saveCache(table, cache);
+    }
+    return count;
+  }
+
+  // 新增/修改：本地先写；云端写失败则标记未同步并提醒，稍后自动补传
   async function upsert(table, encFields, row) {
     const now = new Date().toISOString();
     const full = Object.assign({}, row, {
@@ -97,9 +158,12 @@ WB.store = (function () {
     saveCache(table, cache);
 
     if (sb) {
-      const enc = await encRow(full, encFields);
-      const { error } = await sb.from(table).upsert(enc);
-      if (error) console.warn('云端写入失败:', error.message);
+      try {
+        const enc = await encRow(full, encFields || ENC_FIELDS[table] || []);
+        delete enc._pending;
+        const { error } = await sb.from(table).upsert(enc);
+        if (error) { markPending(table, full.id); if (onSyncIssue) onSyncIssue(table); }
+      } catch (e) { markPending(table, full.id); if (onSyncIssue) onSyncIssue(table); }
     }
     return full;
   }
@@ -121,8 +185,11 @@ WB.store = (function () {
     saveCache(table, cache);
 
     if (sb) {
-      const { error } = await sb.from(table).upsert(full);
-      if (error) console.warn('云端写入失败:', error.message);
+      try {
+        const payload = stripMeta(full);
+        const { error } = await sb.from(table).upsert(payload);
+        if (error) { markPending(table, full.id); if (onSyncIssue) onSyncIssue(table); }
+      } catch (e) { markPending(table, full.id); if (onSyncIssue) onSyncIssue(table); }
     }
     return full;
   }
@@ -172,6 +239,8 @@ WB.store = (function () {
   }
 
   function getPassphrase() { return passphrase; }
+  // 界面用这个注册"云端写入失败"的提醒（比如弹一句提示）
+  function setSyncIssueHandler(fn) { onSyncIssue = fn; }
 
   // 判断这个口令对应的保险柜里有没有任何数据（本地缓存优先，再查云端）
   // 用来拦住"输错口令开空柜"——你的真保险柜里有东西，空的肯定是输错了
@@ -194,5 +263,5 @@ WB.store = (function () {
     return false;
   }
 
-  return { preConnect, init, hasCloud, getWorkspaceId, getPassphrase, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData };
+  return { preConnect, init, hasCloud, getWorkspaceId, getPassphrase, setSyncIssueHandler, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData, pullAll, flushPending, ALL_TABLES: Object.keys(ENC_FIELDS), ENC_FIELDS };
 })();
