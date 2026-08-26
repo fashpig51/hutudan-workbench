@@ -1049,7 +1049,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.40"; // 单文件内联版：同步改为按编号增量更新（消除整批删传空窗）+ 删除逐条传播到云端
+const APP_VERSION = "V1.0.41"; // 单文件内联版：①syncLoad 按本地 _dirty 标记合并防覆盖 ②待办标题/笔记内容上云加密 ③轮询3秒+未记住登录也秒开
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1155,6 +1155,38 @@ async function decrypt(pass, b64) {
     const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
     return JSON.parse(new TextDecoder().decode(pt));
   } catch (e) { return null; }
+}
+
+/* 按 id 合并（防覆盖）：本地有「未上传标记」_dirty 就保本地（断网改了没传上去也不会被云端旧版盖掉）；
+   本地没有未上传标记，则用云端版（另一台更新能正常下来）。云端不存 _dirty，靠本地标记判断。
+   已本地删除、待推到云端删的 id 直接丢弃，避免「删了又复活」。 */
+function mergeById(localArr, cloudArr) {
+  const pending = new Set([
+    ...(state.pendingDeletes.todos||[]), ...(state.pendingDeletes.notes||[]),
+    ...(state.pendingDeletes.pomos||[]),
+  ]);
+  const byId = new Map();
+  for (const l of (localArr || [])) if (l && l.id) byId.set(l.id, l);
+  for (const c of (cloudArr || [])) if (c && c.id) {
+    if (pending.has(c.id)) continue;        // 等下次 push 真删；本次先不拉回来
+    const ex = byId.get(c.id);
+    if (!ex) byId.set(c.id, { ...c, updatedAt: c.updatedAt || c.createdAt });   // 云端独有 -> 采用
+    else if (ex._dirty) { /* 本地有未上传改动 -> 保本地，不覆盖 */ }
+    else byId.set(c.id, { ...c, updatedAt: ex.updatedAt || c.updatedAt || c.createdAt }); // 用云端，但保留本地显示时间
+  }
+  return [...byId.values()];
+}
+
+/* 字段级加密：敏感文本上云前加密（云端只存密文不可读），本地拉下来检测前缀再解密 */
+async function encField(pass, val) {
+  if (!pass || val == null) return val;
+  try { return "__ENC__:" + await encrypt(pass, { v: String(val) }); }
+  catch (e) { return val; }
+}
+async function decField(pass, val) {
+  if (typeof val !== "string" || !val.startsWith("__ENC__:")) return val;
+  try { const o = await decrypt(pass, val.slice("__ENC__:".length)); return o ? o.v : val; }
+  catch (e) { return val; }
 }
 
 /* ---------------------- 全局状态 ---------------------- */
@@ -1324,10 +1356,12 @@ async function flushPendingDeletes(kind) {
 /** 按编号增量更新：云端有就更新、没有就新增（不再先删全表，消除"删完插失败"的空窗） */
 async function supaPush(table, rows) {
   if (!rows.length) return;
+  // 云端表没有 _dirty / updatedAt 这两列，原样发出去会 400；推送前剥掉（本地显示时间另存）
+  const clean = rows.map(r => { const c = { ...r }; delete c._dirty; delete c.updatedAt; return c; });
   await supaFetch(`/rest/v1/${table}?on_conflict=id`, {
     method: "POST",
     headers: { "Prefer": "resolution=merge-duplicates, return=minimal" },
-    body: JSON.stringify(rows),
+    body: JSON.stringify(clean),
   });
 }
 
@@ -1345,9 +1379,10 @@ async function syncAll() {
   state.syncing = true; setSyncUI("syncing");
   try {
     saveLocal();
-    await supaPush(TABLES.todos, state.data.todos.map(t => ({...t, user_id: state.userId})));
+    // 待办标题、笔记内容上云前加密（云端只存密文，口令不对读不出）
+    await supaPush(TABLES.todos, await Promise.all(state.data.todos.map(async t => ({...t, user_id: state.userId, title: await encField(state.pass, t.title)}))));
     await flushPendingDeletes("todos");
-    await supaPush(TABLES.notes, state.data.notes.map(n => ({...n, user_id: state.userId, content: n.locked ? "🔒" : n.content})));
+    await supaPush(TABLES.notes, await Promise.all(state.data.notes.map(async n => ({...n, user_id: state.userId, content: n.locked ? "🔒" : await encField(state.pass, n.content)}))));
     await flushPendingDeletes("notes");
     await supaPush(TABLES.pomodoros, state.data.pomoSessions.map(p => ({...p, user_id: state.userId})));
     await flushPendingDeletes("pomos");
@@ -1356,6 +1391,10 @@ async function syncAll() {
     await flushPendingDeletes("folders");
     await supaPush("wb2_pomo_projects", state.data.pomoProjects.map(p => ({...p, user_id: state.userId})));
     await flushPendingDeletes("projects");
+    // 全部推送成功：清掉本地「未上传」标记（下次纯拉取不会误保本地旧版）
+    state.data.todos.forEach(t => delete t._dirty);
+    state.data.notes.forEach(n => delete n._dirty);
+    state.data.pomoSessions.forEach(p => delete p._dirty);
     _onSyncOk();
     setSyncUI("ok");
   } catch (e) {
@@ -1376,9 +1415,13 @@ async function syncLoad() {
       supaLoad("wb2_folders_v1"),
       supaLoad("wb2_pomo_projects"),
     ]);
-    if (ts.length) state.data.todos = ts;
-    if (ns.length) state.data.notes = ns.map((x) => ({ ...x, content: x.locked ? "" : (x.content || "") }));
-    if (ps.length) state.data.pomoSessions = ps;
+    // 合并（本地有 _dirty 标记则保本地改动，否则用云端；防覆盖 + 防删了又复活），再对敏感字段解密
+    state.data.todos = await Promise.all(
+      mergeById(state.data.todos, ts).map(async t => ({ ...t, title: await decField(state.pass, t.title) }))
+    );
+    const mergedNotes = mergeById(state.data.notes, ns.map(x => ({ ...x, content: x.locked ? "" : (x.content || "") })));
+    state.data.notes = await Promise.all(mergedNotes.map(async n => ({ ...n, content: await decField(state.pass, n.content) })));
+    state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
     if (fs.length) state.data.folders = fs;
     if (pp.length) state.data.pomoProjects = pp;
     saveLocal();
@@ -1407,7 +1450,7 @@ function startAutoSync() {
     const before = JSON.stringify(state.data);
     await syncLoad();
     if (JSON.stringify(state.data) !== before && !isEditingNow()) render();
-  }, 8000);
+  }, 3000);
 }
 
 /* ---------------------- 路由 ---------------------- */
@@ -1478,6 +1521,7 @@ function renderHome() {
       if (!t) return;
       t.done = !t.done;
       t.completedAt = t.done ? nowISO() : null;
+      t._dirty = true;
       saveLocal(); scheduleSync(); render();
     });
   }
@@ -1597,13 +1641,13 @@ function renderTodos() {
 
     listEl.querySelectorAll("[data-toggle]").forEach(el => el.onclick = () => {
       const t = state.data.todos.find(x => x.id === el.dataset.toggle); if (!t) return;
-      t.done = !t.done; t.completedAt = t.done ? nowISO() : null;
+      t.done = !t.done; t.completedAt = t.done ? nowISO() : null; t._dirty = true;
       saveLocal(); scheduleSync(); render();
     });
     listEl.querySelectorAll("[data-edit]").forEach(el => el.onclick = () => openTodoDrawer(state.data.todos.find(t => t.id === el.dataset.edit)));
     listEl.querySelectorAll("[data-pin]").forEach(el => el.onclick = () => {
       const t = state.data.todos.find(x => x.id === el.dataset.pin); if (!t) return;
-      t.pinned = !t.pinned;
+      t.pinned = !t.pinned; t._dirty = true;
       saveLocal(); scheduleSync(); render();
     });
     listEl.querySelectorAll("[data-del]").forEach(el => el.onclick = () => {
@@ -1631,6 +1675,7 @@ function openTodoDrawer(t) {
     title: "",
     desc: "",
     createdAt: nowISO(),
+    updatedAt: nowISO(),
     dueAt: null,
     done: false,
     completedAt: null,
@@ -1692,7 +1737,10 @@ function openTodoDrawer(t) {
     t.priority = Number($(".prio-opt.is-active").dataset.prio || 3);
     t.recurring = $(".recur-opt.is-active").dataset.recur;
     if (!t.createdAt) t.createdAt = nowISO();
+    if (!t.updatedAt) t.updatedAt = t.createdAt;
+    t.updatedAt = nowISO();
     if (t.done) t.completedAt = t.completedAt || nowISO();
+    t._dirty = true;  // 本地改过、还没传上云：syncLoad 合并时保本地，不被云端旧版盖掉
 
     const exist = state.data.todos.find(x => x.id === t.id);
     if (exist) Object.assign(exist, t);
@@ -1918,7 +1966,7 @@ function renderNoteEditor() {
     fsel.innerHTML = state.data.folders.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join("");
     fsel.value = n.folder && state.data.folders.some(f => f.id === n.folder) ? n.folder : (state.data.folders[0] && state.data.folders[0].id) || "";
     fsel.onchange = () => {
-      n.folder = fsel.value; n.updatedAt = nowISO();
+      n.folder = fsel.value; n.updatedAt = nowISO(); n._dirty = true;
       saveLocal(); scheduleSync(); renderNotes(); toast("已移动");
     };
   }
@@ -1929,6 +1977,7 @@ function saveActiveNote() {
   n.content = $("#noteContent").value;
   n.updatedAt = nowISO();
   if (!n.createdAt) n.createdAt = n.updatedAt;
+  n._dirty = true;
   $("#notePreview").innerHTML = renderMarkdown(n.content || "");
   const lines = (n.content||"").split("\n").length;
   const chars = (n.content||"").length;
@@ -1942,7 +1991,7 @@ function ensureNewNoteSaved() {
   if (state.select.noteId !== "__new__") return;
   const fsel = $("#noteFolderSelect");
   const folder = (fsel && fsel.value) ? fsel.value : (state.data.folders[0]?.id || "f_default");
-  const n = { id: uid(), title: $("#noteTitle").value, content: $("#noteContent").value, folder, pinned: false, locked: false, createdAt: nowISO(), updatedAt: nowISO() };
+  const n = { id: uid(), title: $("#noteTitle").value, content: $("#noteContent").value, folder, pinned: false, locked: false, createdAt: nowISO(), updatedAt: nowISO(), _dirty: true };
   state.data.notes.unshift(n);
   state.select.noteId = n.id;
   saveLocal(); scheduleSync(); renderNotes(); renderFolders();
@@ -1952,7 +2001,7 @@ $("#noteContent").oninput = () => { ensureNewNoteSaved(); clearTimeout(noteSaveT
 
 $("#btnPinNote").onclick = () => {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
-  n.pinned = !n.pinned;
+  n.pinned = !n.pinned; n._dirty = true;
   $("#btnPinNote").classList.toggle("is-on", !!n.pinned);
   saveLocal(); scheduleSync(); renderNotes();
 };
@@ -1981,13 +2030,13 @@ $("#btnLockNote").onclick = () => {
       actions: [
         { label:"取消", cls:"btn" },
         { label:"加密", cls:"btn btn-orange", onClick: () => {
-          n.locked = true; n.updatedAt = nowISO();
+          n.locked = true; n.updatedAt = nowISO(); n._dirty = true;
           saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已加密");
         }}
       ]
     });
   } else {
-    n.locked = false; n.updatedAt = nowISO();
+    n.locked = false; n.updatedAt = nowISO(); n._dirty = true;
     saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已取消加密");
   }
 };
@@ -2252,7 +2301,9 @@ function endPomo(complete) {
     startedAt: new Date(Date.now() - elapsed*60*1000).toISOString(),
     endedAt: nowISO(),
     duration: elapsed,
-    completed: finished
+    completed: finished,
+    updatedAt: nowISO(),
+    _dirty: true
   });
   // 自动切休息
   if (complete && state.timer.mode === "focus") {
@@ -2352,8 +2403,8 @@ async function bootLogin() {
     })();
     return;
   }
-  // 没记住登录 / 本地无缓存数据：走原流程（首次用必须等云端）
-  await syncLoad();
+  // 没记住登录 / 本地无缓存数据：登录框立即出现，云端在后台静默拉取（不阻塞首屏）
+  (async () => { try { await syncLoad(); } catch (e) {} })();
   if (rem) {
     const ok = await doLogin(rem, true);
     if (ok) return;
