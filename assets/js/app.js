@@ -168,16 +168,23 @@ window.WB = window.WB || {};
 
   function switchTo(key) {
     const content = E.$('#content');
-    // 先拆掉旧板块的实时订阅，避免旧回调回来捣乱
-    if (content.__unsub) { try { content.__unsub(); content.__unsub = null; } catch (e) {} }
-    // 清空内容即可；旧 DOM 元素被移除后上面的事件监听器自然失效
-    content.innerHTML = '';
     current = key;
     E.$$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
-    if (key === 'dashboard') WB.dashboard(content);
-    else if (key === 'work') WB.sections.work(content);
-    else if (key === 'study') WB.sections.study(content);
-    else if (key === 'life') WB.sections.life(content);
+    // 懒加载：每个导航只 build 一次，之后切换只显隐，避免整页重建造成的数据刷新竞争
+    let host = content.querySelector('.section-host[data-key="' + key + '"]');
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'section-host';
+      host.dataset.key = key;
+      content.appendChild(host);
+      if (key === 'dashboard') WB.dashboard(host);
+      else if (key === 'work') WB.sections.work(host);
+      else if (key === 'study') WB.sections.study(host);
+      else if (key === 'life') WB.sections.life(host);
+    }
+    content.querySelectorAll('.section-host').forEach(h => {
+      h.style.display = (h.dataset.key === key) ? '' : 'none';
+    });
   }
 
   // 校验通过后真正进入（init 已在外部完成）
@@ -216,7 +223,11 @@ window.WB = window.WB || {};
     });
   }
   function refreshCurrent() {
-    if (current) switchTo(current);
+    // 只刷新当前页数据（各 section 已在 build 时订阅自身数据表，这里做兜底刷新），
+    // 不再重建整个页面，避免"保存后不显示/进入不显示最新"的渲染竞争
+    const content = E.$('#content');
+    const host = content.querySelector('.section-host[data-key="' + current + '"]');
+    if (host && host._render) host._render();
   }
 
   function showPassModal() {
@@ -624,6 +635,7 @@ window.WB = window.WB || {};
     }
 
     render();
+    root._render = render;
   };
 
   async function exportData() {

@@ -707,6 +707,7 @@ WB.sections.work = function (root) {
   const unsub = WB.store.subscribe('todos', ['title', 'note'], render);
   root.__unsub = unsub;
   render();
+  root._render = render;
 };
 
 // ---------- 学习：笔记 + 书单 + 关系图谱 + 白板 ----------
@@ -1012,6 +1013,13 @@ WB.sections.study = function (root) {
   const unsubNotes = WB.store.subscribe('notes', ['title', 'content'], () => { if (view === 'notes') renderNotesList(); if (view === 'graph') renderGraphPanel(); if (view === 'board') renderBoardPanel(); });
   const unsubBooks = WB.store.subscribe('books', ['title', 'author', 'review'], () => { if (view === 'books') renderBooksList(); });
   root.__unsub = function () { try { unsubNotes(); unsubBooks(); } catch (e) {} };
+  function refreshStudy() {
+    if (view === 'notes') renderNotesList();
+    else if (view === 'books') renderBooksList();
+    else if (view === 'graph') renderGraphPanel();
+    else if (view === 'board') renderBoardPanel();
+  }
+  root._render = refreshStudy;
   setView('notes');
 };
 
@@ -1265,5 +1273,12 @@ WB.sections.life = function (root) {
   unsubs.push(WB.store.subscribe('moods', ['note'], () => { if (view === 'mood') renderMoodList(); }));
   unsubs.push(WB.store.subscribe('health', ['note'], () => { if (view === 'health') renderHealthList(); }));
   root.__unsub = function () { unsubs.forEach(u => { try { u(); } catch (e) {} }); };
+  function refreshLife() {
+    if (view === 'habits') renderHabitsList();
+    else if (view === 'mood') renderMoodList();
+    else if (view === 'health') renderHealthList();
+    else if (view === 'stats') renderStatsPanel();
+  }
+  root._render = refreshLife;
   setView('habits');
 };
