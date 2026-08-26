@@ -92,7 +92,7 @@ WB.store = (function () {
 
   // 取列表：先本地缓存(秒开)，再拉云端合并；保留本地未同步(_pending)项
   async function list(table, encFields) {
-    let rows = loadCache(table);
+    let cached = loadCache(table);          // 进函数时本机快照（即时返回用，秒开）
     if (sb && !fastOpen) {
       try {
         const { data, error } = await sb
@@ -102,22 +102,31 @@ WB.store = (function () {
           .eq('is_deleted', false);
         if (!error && data) {
           const remote = await Promise.all(data.map(r => decRow(r, encFields || ENC_FIELDS[table] || [])));
-          // 合并原则：云端 + 本地都保留（以 id 并集）。本地独有项兜底留住，
-          // 避免「本地存了、云端那一刻没收到的条目」重进时被误清。
           const map = {};
           remote.forEach(r => { if (r && r.id) map[r.id] = r; });
-          rows.forEach(r => {
-            if (!r || !r.id || r.is_deleted) return;          // 跳过已软删的本地项
+          // 兜底1：合并「进函数时本机已有的项」（云端没有、或本机较新则留本机）
+          cached.forEach(r => {
+            if (!r || !r.id || r.is_deleted) return;
             const ex = map[r.id];
-            if (!ex) map[r.id] = r;                             // 云端没有 → 本地兜底保留
-            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r; // 本地较新 → 用本地
+            if (!ex) map[r.id] = r;
+            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r;
           });
-          rows = Object.values(map);
-          saveCache(table, rows);
+          // 兜底2（关键）：上面 await 云端时网络要等一会，期间用户可能又新建/改了本机项
+          //（upsert 已写进本机缓存）。这里重新读一次本机，把「期间新增的本机项」也并回来，
+          // 否则会被云端这一刻的旧快照覆盖、造成「保存后闪一下又消失」。
+          loadCache(table).forEach(r => {
+            if (!r || !r.id || r.is_deleted) return;
+            const ex = map[r.id];
+            if (!ex) map[r.id] = r;
+            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r;
+          });
+          const merged = Object.values(map);
+          saveCache(table, merged);
+          return merged;
         }
       } catch (e) { /* 断网忽略，用本地 */ }
     }
-    return rows;
+    return cached;
   }
 
   // 进主页时把云端最新数据全拉一遍，覆盖本地缓存（保留未同步项）

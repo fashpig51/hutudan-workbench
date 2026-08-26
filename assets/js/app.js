@@ -163,7 +163,9 @@ window.WB = window.WB || {};
       localStorage.setItem('wb_theme', light ? 'light' : 'dark');
       E.toast(light ? '已切到浅色' : '已切到深色');
     });
-    if (localStorage.getItem('wb_theme') === 'light') document.body.classList.add('light');
+    // 之前浅色偏好被记死导致一直浅色；这里清掉历史残留、默认回到深色。
+    // 右上角月亮仍可临时切浅色（重新打开会回深色；若以后想要浅色永久再说）。
+    if (localStorage.getItem('wb_theme') === 'light') localStorage.removeItem('wb_theme');
   }
 
   function switchTo(key) {
