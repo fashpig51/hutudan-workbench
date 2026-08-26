@@ -385,6 +385,7 @@ a { color: inherit; text-decoration: none; }
 .md-p { margin: 6px 0; }
 .md-list { margin: 6px 0; padding-left: 20px; }
 .md-item { margin: 3px 0; line-height: 1.7; }
+.md-sub { margin: 2px 0 5px 26px; color: var(--ink-soft); line-height: 1.6; }
 .md-code { background: var(--card-2); padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Consolas, monospace; font-size: 13px; }
 .md-pre { background: var(--card-2); padding: 12px; border-radius: 8px; overflow-x: auto; font-family: "SF Mono", Consolas, monospace; font-size: 13px; line-height: 1.5; }
 .md-blockquote { border-left: 3px solid var(--yellow); padding-left: 12px; color: var(--ink-soft); font-style: italic; margin: 8px 0; }
@@ -1061,7 +1062,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.45"; // 单文件内联版：⑦笔记查看页列表：有序数字项(1./2.)前面加一个圆点标记，★/- 仍原样保留
+const APP_VERSION = "V1.0.46"; // 单文件内联版：⑧笔记查看页有序数字项前保留圆点•；圆点项下面的普通说明文字(如"找不到")自动缩进两格作为子内容
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2118,6 +2119,18 @@ function renderMarkdown(md) {
   html = html.replace(/^(\d+\.) (.*)$/gm, '<div class="md-item">• $1 $2</div>');
   html = html.replace(/^([★-]) (.*)$/gm, '<div class="md-item">$1 $2</div>');
   html = html.replace(/(<div class="md-item">.*<\/div>(\n|$))+/g, m => `<div class="md-list">${m}</div>`);
+  // 列表项下面的普通行（子说明）缩进两格
+  {
+    const _lines = html.split("\n");
+    let _inItem = false;
+    for (let i = 0; i < _lines.length; i++) {
+      const _struct = /^<(h\d|div|blockquote|pre)/.test(_lines[i]) || /^\s*$/.test(_lines[i]);
+      if (/^<div class="md-item">/.test(_lines[i])) { _inItem = true; continue; }
+      if (/^\s*$/.test(_lines[i])) { _inItem = false; continue; }
+      if (_inItem && !_struct) _lines[i] = `<div class="md-sub">${_lines[i]}</div>`;
+    }
+    html = _lines.join("\n");
+  }
   // 粗体/斜体
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
