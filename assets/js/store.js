@@ -22,8 +22,15 @@ WB.store = (function () {
   let passphrase = null;
   let cfg = {};
   let onSyncIssue = null;  // 云端写入失败时的提醒回调（由界面注册）
-  let fastOpen = false;     // 进主页瞬间只取本地缓存、云端放后台跑，避免刷新傻等
+  let fastOpen = false;     // 兼容旧调用：当前 list 永远秒回本机缓存，此开关已无意义（保留不删以免改动面过大）
   function setFastOpen(v) { fastOpen = v; }
+  // 本机改动本地通知：本机一改立刻通知所有订阅者（秒级，不绕云端）
+  const _localSubs = {};
+  function notify(table) {
+    const cbs = _localSubs[table] || [];
+    const rows = loadCache(table);
+    cbs.forEach(cb => { try { cb(rows); } catch (e) {} });
+  }
 
   function cacheKey(table) { return CACHE_PREFIX + workspaceId + '_' + table; }
   function loadCache(table) {
@@ -91,49 +98,44 @@ WB.store = (function () {
   }
 
   // 取列表：先本地缓存(秒开)，再拉云端合并；保留本地未同步(_pending)项
+  // 取列表：永远秒回本机缓存（主数据源是本机）。云端同步在后台完成：
+  // 写入时 upsert 已落本机并 notify；跨设备靠实时订阅；进主页 pullAll 拉一次。
+  // 这样任意页面读取都不再等网络，新增待办/进入页面都秒显。
   async function list(table, encFields) {
-    let cached = loadCache(table);          // 进函数时本机快照（即时返回用，秒开）
-    if (sb && !fastOpen) {
-      try {
-        const { data, error } = await sb
-          .from(table)
-          .select('*')
-          .eq('workspace_id', workspaceId)
-          .eq('is_deleted', false);
-        if (!error && data) {
-          const remote = await Promise.all(data.map(r => decRow(r, encFields || ENC_FIELDS[table] || [])));
-          const map = {};
-          remote.forEach(r => { if (r && r.id) map[r.id] = r; });
-          // 兜底1：合并「进函数时本机已有的项」（云端没有、或本机较新则留本机）
-          cached.forEach(r => {
-            if (!r || !r.id || r.is_deleted) return;
-            const ex = map[r.id];
-            if (!ex) map[r.id] = r;
-            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r;
-          });
-          // 兜底2（关键）：上面 await 云端时网络要等一会，期间用户可能又新建/改了本机项
-          //（upsert 已写进本机缓存）。这里重新读一次本机，把「期间新增的本机项」也并回来，
-          // 否则会被云端这一刻的旧快照覆盖、造成「保存后闪一下又消失」。
-          loadCache(table).forEach(r => {
-            if (!r || !r.id || r.is_deleted) return;
-            const ex = map[r.id];
-            if (!ex) map[r.id] = r;
-            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r;
-          });
-          const merged = Object.values(map);
-          saveCache(table, merged);
-          return merged;
-        }
-      } catch (e) { /* 断网忽略，用本地 */ }
-    }
-    return cached;
+    return loadCache(table);
+  }
+
+  // 后台把单张表云端最新拉下来，合进本机缓存并通知刷新。
+  // 合并保留本机独占项（云端还没收到 / 本机较新），避免刚新建的被旧快照覆盖。
+  async function syncTable(table, encFields) {
+    if (!sb) return;
+    try {
+      const { data, error } = await sb
+        .from(table)
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('is_deleted', false);
+      if (!error && data) {
+        const remote = await Promise.all(data.map(r => decRow(r, encFields || ENC_FIELDS[table] || [])));
+        const map = {};
+        remote.forEach(r => { if (r && r.id) map[r.id] = r; });
+        loadCache(table).forEach(r => {
+          if (!r || !r.id || r.is_deleted) return;
+          const ex = map[r.id];
+          if (!ex) map[r.id] = r;
+          else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r;
+        });
+        saveCache(table, Object.values(map));
+        notify(table);
+      }
+    } catch (e) { /* 断网忽略 */ }
   }
 
   // 进主页时把云端最新数据全拉一遍，覆盖本地缓存（保留未同步项）
   async function pullAll() {
     if (!sb) return;
     for (const table of Object.keys(ENC_FIELDS)) {
-      await list(table, ENC_FIELDS[table]);
+      await syncTable(table, ENC_FIELDS[table]);
     }
   }
 
@@ -174,6 +176,7 @@ WB.store = (function () {
     const i = cache.findIndex(r => r.id === full.id);
     if (i >= 0) cache[i] = full; else cache.push(full);
     saveCache(table, cache);
+    notify(table);   // 本机改动立刻通知所有页面刷新（秒级，不等云端）
 
     if (sb) {
       try {
@@ -201,6 +204,7 @@ WB.store = (function () {
     const i = cache.findIndex(r => r.id === full.id);
     if (i >= 0) cache[i] = full; else cache.push(full);
     saveCache(table, cache);
+    notify(table);   // 本机改动立刻通知所有页面刷新（秒级，不等云端）
 
     if (sb) {
       try {
@@ -218,34 +222,41 @@ WB.store = (function () {
     let cache = loadCache(table);
     cache = cache.map(r => r.id === id ? Object.assign({}, r, { is_deleted: true, updated_at: now }) : r);
     saveCache(table, cache);
+    notify(table);   // 本机改动立刻通知所有页面刷新
     if (sb) {
       await sb.from(table).update({ is_deleted: true, updated_at: now }).eq('id', id).eq('workspace_id', workspaceId);
     }
   }
 
-  // 实时订阅：这台改了，立刻推给其他设备
+  // 订阅：本机改动 + 跨设备改动都走「更新本机缓存 → notify 刷新」这一条路
   function subscribe(table, encFields, cb) {
-    if (!sb) return function () {};
-    const channel = sb.channel('wb_' + table + '_' + workspaceId)
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: table, filter: 'workspace_id=eq.' + workspaceId },
-        async (payload) => {
-          let rows = loadCache(table);
-          const rec = payload.new;
-          if (rec && rec.id) {
-            const dec = await decRow(rec, encFields);
-            if (payload.eventType === 'DELETE' || dec.is_deleted) {
-              rows = rows.filter(r => r.id !== dec.id);
-            } else {
-              const i = rows.findIndex(r => r.id === dec.id);
-              if (i >= 0) rows[i] = dec; else rows.push(dec);
+    _localSubs[table] = _localSubs[table] || [];
+    _localSubs[table].push(cb);
+    const localUnsub = () => { _localSubs[table] = (_localSubs[table] || []).filter(f => f !== cb); };
+    let rtUnsub = function () {};
+    if (sb) {
+      const channel = sb.channel('wb_' + table + '_' + workspaceId)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: table, filter: 'workspace_id=eq.' + workspaceId },
+          async (payload) => {
+            let rows = loadCache(table);
+            const rec = payload.new;
+            if (rec && rec.id) {
+              const dec = await decRow(rec, encFields);
+              if (payload.eventType === 'DELETE' || dec.is_deleted) {
+                rows = rows.filter(r => r.id !== dec.id);
+              } else {
+                const i = rows.findIndex(r => r.id === dec.id);
+                if (i >= 0) rows[i] = dec; else rows.push(dec);
+              }
+              saveCache(table, rows);
             }
-            saveCache(table, rows);
-          }
-          cb(rows);
-        })
-      .subscribe();
-    return function () { try { sb.removeChannel(channel); } catch (e) {} };
+            notify(table);   // 统一走本地通知刷新（跨设备变更也通知本机所有订阅者）
+          })
+        .subscribe();
+      rtUnsub = function () { try { sb.removeChannel(channel); } catch (e) {} };
+    }
+    return function () { localUnsub(); rtUnsub(); };
   }
 
   // 心跳：每次打开应用戳一下数据库，给「7天自动暂停」加一道保险

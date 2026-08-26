@@ -645,6 +645,11 @@ window.WB = window.WB || {};
       } catch (e) { E.toast('导出失败：' + (e.message || e)); }
     }
 
+    // 总览页自订阅本机改动：任一表变化（含本机新增待办）立刻刷新总览，不等云端推送回来
+    ['todos', 'habits', 'notes', 'goals', 'time_logs'].forEach(t => {
+      WB.store.subscribe(t, WB.store.ENC_FIELDS[t], render);
+    });
+
     render();
     root._render = render;
   };

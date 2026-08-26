@@ -117,9 +117,9 @@ WB.sections.work = function (root) {
     </div>
     <div class="tool-row">
       <div class="filter-row" id="w-filterRow">
-        <button class="chip active" data-f="all">全部</button>
-        <button class="chip" data-f="active">进行中</button>
-        <button class="chip" data-f="done">已完成</button>
+        <button class="chip" data-f="all">全部</button>
+        <button class="chip active" data-f="active">进行中</button>
+        <button class="chip" data-f="done">📜 历史</button>
         <button class="chip" data-f="hot">本周高优</button>
         <span id="w-tagChips" class="tag-chips"></span>
         <button id="w-tagMgr" class="chip" title="新建/改名/删除标签">⚙ 管理标签</button>
@@ -139,7 +139,7 @@ WB.sections.work = function (root) {
     <div id="w-summary" class="summary-box" style="display:none"></div>
     <ul id="w-list" class="list"></ul>`;
 
-  let filter = 'all';
+  let filter = 'active';   // 默认只显示进行中，做完了的进「📜 历史」看，不在待办主列表里
   let view = 'list';
   let tagFilter = '';
   let calView = 'month'; // 日历子视图：month / week / day
