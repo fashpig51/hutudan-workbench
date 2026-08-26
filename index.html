@@ -1049,7 +1049,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.39"; // 单文件内联版（线上实际部署的这套）：待办默认进行中 + 📜历史入口
+const APP_VERSION = "V1.0.40"; // 单文件内联版：同步改为按编号增量更新（消除整批删传空窗）+ 删除逐条传播到云端
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1176,6 +1176,7 @@ const state = {
   syncing: false,
   cloudOk: true,        // 联网标记：supaFetch 失败会自动置 false（UI 切到离线模式）
   notifiedOffline: false,
+  pendingDeletes: { todos:[], notes:[], pomos:[], folders:[], projects:[] },  // 本地已删、待下次 push 时从云端也删的 id
 };
 
 const LS_KEY = (k) => "wb2_" + state.userId + "_" + k;
@@ -1215,6 +1216,7 @@ function saveLocal() {
     todos: state.data.todos,
     pomoProjects: state.data.pomoProjects,
     pomoSessions: state.data.pomoSessions,
+    pendingDeletes: state.pendingDeletes,
     updatedAt: nowISO(),
   };
   try { localStorage.setItem(k, JSON.stringify(payload)); } catch(e) {}
@@ -1231,6 +1233,7 @@ function loadLocal() {
     state.data.todos    = p.todos    || [];
     state.data.pomoProjects = p.pomoProjects || [];
     state.data.pomoSessions = p.pomoSessions || [];
+    state.pendingDeletes = p.pendingDeletes || { todos:[], notes:[], pomos:[], folders:[], projects:[] };
     return true;
   } catch(e) { return false; }
 }
@@ -1300,17 +1303,32 @@ async function supaLoad(table) {
   // 把 user_id 这列剥掉
   return res.map(({user_id, ...x}) => x);
 }
-/** 用 upsert 全量同步：先删当前用户的，再批量插入（数据总量小，安全） */
-async function supaPush(table, rows) {
-  const del = await supaFetch(`/rest/v1/${table}?user_id=eq.${state.userId}`, { method: "DELETE" });
-  if (rows.length && del === null) return;   // 删除失败就不写，避免脏写
-  if (rows.length) {
-    await supaFetch(`/rest/v1/${table}`, {
-      method: "POST",
-      headers: { "Prefer": "return=minimal" },
-      body: JSON.stringify(rows),
-    });
+// 删除传播：本地删了某条，记下 id，等下次 push 时从云端也删（不再整批删全表）
+const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects" };
+function addPendingDelete(kind, id) {
+  if (!state.pendingDeletes) state.pendingDeletes = { todos:[], notes:[], pomos:[], folders:[], projects:[] };
+  if (!state.pendingDeletes[kind].includes(id)) state.pendingDeletes[kind].push(id);
+}
+async function flushPendingDeletes(kind) {
+  const ids = (state.pendingDeletes && state.pendingDeletes[kind]) || [];
+  if (!ids.length) return;
+  const table = DEL_KIND_TABLE[kind];
+  let remaining = ids.slice();
+  for (const id of ids) {
+    const r = await supaFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (r !== null) remaining = remaining.filter(x => x !== id);   // 云端删成功才从待删名单移除
   }
+  state.pendingDeletes[kind] = remaining;
+  saveLocal();
+}
+/** 按编号增量更新：云端有就更新、没有就新增（不再先删全表，消除"删完插失败"的空窗） */
+async function supaPush(table, rows) {
+  if (!rows.length) return;
+  await supaFetch(`/rest/v1/${table}?on_conflict=id`, {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates, return=minimal" },
+    body: JSON.stringify(rows),
+  });
 }
 
 let syncScheduled = false;
@@ -1328,11 +1346,16 @@ async function syncAll() {
   try {
     saveLocal();
     await supaPush(TABLES.todos, state.data.todos.map(t => ({...t, user_id: state.userId})));
+    await flushPendingDeletes("todos");
     await supaPush(TABLES.notes, state.data.notes.map(n => ({...n, user_id: state.userId, content: n.locked ? "🔒" : n.content})));
+    await flushPendingDeletes("notes");
     await supaPush(TABLES.pomodoros, state.data.pomoSessions.map(p => ({...p, user_id: state.userId})));
+    await flushPendingDeletes("pomos");
     state.data.folders = state.data.folders.slice(0, 20);
     await supaPush("wb2_folders_v1", state.data.folders.map(f => ({...f, user_id: state.userId})));
+    await flushPendingDeletes("folders");
     await supaPush("wb2_pomo_projects", state.data.pomoProjects.map(p => ({...p, user_id: state.userId})));
+    await flushPendingDeletes("projects");
     _onSyncOk();
     setSyncUI("ok");
   } catch (e) {
@@ -1585,8 +1608,9 @@ function renderTodos() {
     });
     listEl.querySelectorAll("[data-del]").forEach(el => el.onclick = () => {
       const t = state.data.todos.find(x => x.id === el.dataset.del); if (!t) return;
-      confirmDialog({ title:"删除待办？", desc:`要删除「${escHtml(t.title)}」吗？此操作不可撤销。`, danger:true, onYes: () => {
+      confirmDialog({ title:"删除待办？", desc:`要删除「${escHtml(t.title)}」吗？此操作不可撤销。`, danger:true,       onYes: () => {
         state.data.todos = state.data.todos.filter(x => x.id !== t.id);
+        addPendingDelete("todos", t.id);
         saveLocal(); scheduleSync(); render(); toast("已删除");
       }});
     });
@@ -1841,6 +1865,7 @@ function renderNotes() {
     const nn = state.data.notes.find(x => x.id === id);
     confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(nn?nn.title||"(无标题)":"")}」吗？`, danger:true, onYes: () => {
       state.data.notes = state.data.notes.filter(x => x.id !== id);
+      addPendingDelete("notes", id);
       if (state.select.noteId === id) state.select.noteId = state.data.notes[0]?.id || null;
       saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
     }});
@@ -1980,6 +2005,7 @@ $("#btnDelNote").onclick = () => {
   const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
   confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(n.title||"(无标题)")}」吗？`, danger:true, onYes: () => {
     state.data.notes = state.data.notes.filter(x => x.id !== n.id);
+    addPendingDelete("notes", n.id);
     state.select.noteId = state.data.notes[0]?.id || null;
     saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
   }});
@@ -2132,12 +2158,15 @@ function renderPomo() {
       const id = b.dataset.pdel;
       const p = state.data.pomoProjects.find(x => x.id === id); if (!p) return;
       confirmDialog({ title:"删除项目？", desc:`删除「${escHtml(p.name)}」会清掉它的所有专注记录（不可撤销）。`, danger:true, onYes:()=>{
+        const _delSids = state.data.pomoSessions.filter(s => s.projectId === id).map(s => s.id);
         state.data.pomoProjects = state.data.pomoProjects.filter(x => x.id !== id);
         state.data.pomoSessions = state.data.pomoSessions.filter(s => s.projectId !== id);
         if (state.select.runningProjectId === id) {
           state.select.runningProjectId = null;
           clearInterval(state.timer.tickId); state.timer.tickId = null;
         }
+        addPendingDelete("projects", id);
+        _delSids.forEach(sid => addPendingDelete("pomos", sid));
         saveLocal(); scheduleSync(); renderPomo(); toast("已删除");
       }});
     });
