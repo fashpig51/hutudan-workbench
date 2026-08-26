@@ -22,6 +22,8 @@ WB.store = (function () {
   let passphrase = null;
   let cfg = {};
   let onSyncIssue = null;  // 云端写入失败时的提醒回调（由界面注册）
+  let fastOpen = false;     // 进主页瞬间只取本地缓存、云端放后台跑，避免刷新傻等
+  function setFastOpen(v) { fastOpen = v; }
 
   function cacheKey(table) { return CACHE_PREFIX + workspaceId + '_' + table; }
   function loadCache(table) {
@@ -91,7 +93,7 @@ WB.store = (function () {
   // 取列表：先本地缓存(秒开)，再拉云端合并；保留本地未同步(_pending)项
   async function list(table, encFields) {
     let rows = loadCache(table);
-    if (sb) {
+    if (sb && !fastOpen) {
       try {
         const { data, error } = await sb
           .from(table)
@@ -270,5 +272,5 @@ WB.store = (function () {
     return false;
   }
 
-  return { preConnect, init, hasCloud, getWorkspaceId, getPassphrase, setSyncIssueHandler, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData, pullAll, flushPending, ALL_TABLES: Object.keys(ENC_FIELDS), ENC_FIELDS };
+  return { preConnect, init, hasCloud, getWorkspaceId, getPassphrase, setSyncIssueHandler, setFastOpen, list, upsert, upsertRaw, remove, subscribe, heartbeat, hasAnyData, pullAll, flushPending, ALL_TABLES: Object.keys(ENC_FIELDS), ENC_FIELDS };
 })();

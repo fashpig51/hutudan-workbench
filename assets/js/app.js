@@ -194,23 +194,33 @@ window.WB = window.WB || {};
     WB.store.setSyncIssueHandler(() => {
       E.toast('云端没存上，已留在本机，联网后自动补传');
     });
-    if (cloud) {
-      E.setSync('on', '云端同步中');
-      await WB.store.pullAll();      // 进主页先拉一次云端，确保看到别的设备刚加的
-      await WB.store.flushPending(); // 补传之前没传上的
-    }
     buildShell();
-    switchTo('dashboard');
+    if (cloud) {
+      // 先只取本机缓存，让页面秒开；云端在后台拉，拉完再局部刷新
+      WB.store.setFastOpen(true);
+      E.setSync('wait', '读取本地…');
+    }
+    switchTo('dashboard');           // 用本地缓存立刻画出页面
     startReminderLoop();
     E.$('#passModal').style.display = 'none';
-    // 心跳（给 Supabase 7天暂停加保险）放到进主页之后异步跑，不阻塞进入
     if (cloud) {
       setupGlobalSync(); // 全局实时订阅：任一设备改动都推给本机并刷新当前页
       // 定时补传：开着应用时若网络恢复，自动把漏传的数据补上去
       setInterval(() => { if (WB.store.hasCloud()) WB.store.flushPending().catch(() => {}); }, 20000);
-      WB.store.heartbeat().then(() => {
-        setTimeout(() => E.setSync('on', '已同步'), 300);
-      }).catch(() => {});
+      // 关掉"只取本地"，让后续读取走云端；后台拉最新并刷新当前页（不阻塞进入）
+      WB.store.setFastOpen(false);
+      E.setSync('wait', '云端同步中…');
+      Promise.resolve().then(async () => {
+        try {
+          await WB.store.pullAll();      // 后台把云端最新全拉下来，写进本地缓存
+          await WB.store.flushPending(); // 补传之前没传上的
+          refreshCurrent();              // 把云端最新刷到当前页
+          E.setSync('on', '已同步');
+        } catch (e) {
+          E.setSync('on', '已同步（部分失败）');
+        }
+        WB.store.heartbeat().catch(() => {}); // 7天暂停加保险，异步不阻塞
+      });
     } else {
       E.setSync('off', '纯本地模式');
     }
