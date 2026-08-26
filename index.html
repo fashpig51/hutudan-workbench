@@ -1061,7 +1061,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.44"; // 单文件内联版：⑥笔记查看页列表不再用自动数字序号(避免全是1/打乱上下文)，改为保留你写的符号(★/-/数字.)并缩进分组
+const APP_VERSION = "V1.0.45"; // 单文件内联版：⑦笔记查看页列表：有序数字项(1./2.)前面加一个圆点标记，★/- 仍原样保留
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2114,8 +2114,9 @@ function renderMarkdown(md) {
   html = html.replace(/^# (.*)$/gm,   '<div class="md-h1">$1</div>');
   // 引用
   html = html.replace(/^&gt; (.*)$/gm, '<blockquote class="md-blockquote">$1</blockquote>');
-  // 列表（保留你写的符号 ★ / - / 数字. 当前缀，缩进分组，不加自动序号）
-  html = html.replace(/^([★-]|\d+\.) (.*)$/gm, '<div class="md-item">$1 $2</div>');
+  // 列表（保留你写的符号并缩进分组；有序数字项前面加一个圆点）
+  html = html.replace(/^(\d+\.) (.*)$/gm, '<div class="md-item">• $1 $2</div>');
+  html = html.replace(/^([★-]) (.*)$/gm, '<div class="md-item">$1 $2</div>');
   html = html.replace(/(<div class="md-item">.*<\/div>(\n|$))+/g, m => `<div class="md-list">${m}</div>`);
   // 粗体/斜体
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
