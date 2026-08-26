@@ -100,9 +100,16 @@ WB.store = (function () {
           .eq('is_deleted', false);
         if (!error && data) {
           const remote = await Promise.all(data.map(r => decRow(r, encFields || ENC_FIELDS[table] || [])));
+          // 合并原则：云端 + 本地都保留（以 id 并集）。本地独有项兜底留住，
+          // 避免「本地存了、云端那一刻没收到的条目」重进时被误清。
           const map = {};
           remote.forEach(r => { if (r && r.id) map[r.id] = r; });
-          rows.forEach(r => { if (r && r._pending && !map[r.id]) map[r.id] = r; });
+          rows.forEach(r => {
+            if (!r || !r.id || r.is_deleted) return;          // 跳过已软删的本地项
+            const ex = map[r.id];
+            if (!ex) map[r.id] = r;                             // 云端没有 → 本地兜底保留
+            else if ((r.updated_at || '') >= (ex.updated_at || '')) map[r.id] = r; // 本地较新 → 用本地
+          });
           rows = Object.values(map);
           saveCache(table, rows);
         }

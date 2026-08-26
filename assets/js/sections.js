@@ -760,9 +760,13 @@ WB.sections.study = function (root) {
       if (tpl === 'daily') { content = '## 今日三件事\n\n## 灵感\n\n## 复盘'; category = '生活'; daily = todayLocal(); }
       else if (tpl === 'meeting') { content = '## 议题\n\n## 结论\n\n## 待办'; category = '工作'; }
       else if (tpl === 'reading') { content = '## 书名\n\n## 金句\n\n## 感想'; category = '学习'; }
-      await WB.store.upsert('notes', ['title', 'content'], { title, content, tags: E.$('#n-tags', el).value.trim(), category, daily_date: daily, is_daily: !!daily });
-      E.$('#n-title', el).value = ''; E.$('#n-tags', el).value = '';
-      renderNotesList();
+      try {
+        await WB.store.upsert('notes', ['title', 'content'], { title, content, tags: E.$('#n-tags', el).value.trim(), category, daily_date: daily, is_daily: !!daily });
+        E.$('#n-title', el).value = ''; E.$('#n-tags', el).value = '';
+        renderNotesList();
+      } catch (err) {
+        E.toast('保存失败，请重试');
+      }
     });
     E.$('#n-daily', el).addEventListener('click', async () => {
       const d = todayLocal();
