@@ -554,6 +554,8 @@ a { color: inherit; text-decoration: none; }
 .col { display:flex; flex-direction: column; gap: 10px; }
 .center { display:grid; place-items: center; }
 .hidden { display: none !important; }
+/* 写/看切换按钮：仅窄屏单栏时显示，电脑端三栏不显示 */
+.btn-note-mode { display: none; }
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 1100px) {
@@ -569,6 +571,14 @@ a { color: inherit; text-decoration: none; }
   .notes-layout.show-editor { grid-template-columns: 1fr; }
   .notes-layout.show-editor .notes-folder-list, .notes-layout.show-editor .notes-list { display: none; }
   .notes-layout.show-editor .note-editor { display: flex; }
+  /* 单栏：编辑/查看单视图切换（方案A，仅窄屏生效，电脑端三栏不动） */
+  .btn-note-mode { display: grid; }
+  .btn-fullscreen { display: none; }
+  .notes-layout.show-editor .note-editor-body { display: flex; flex-direction: column; grid-template-columns: none; }
+  .notes-layout.show-editor.note-mode-view .note-editor-body textarea { display: none; }
+  .notes-layout.show-editor.note-mode-edit .note-editor-body .preview { display: none; }
+  .notes-layout.show-editor.note-mode-view .note-editor-body .preview { flex: 1; min-height: 0; overflow-y: auto; font-size: 16px; line-height: 1.85; padding: 18px; }
+  .notes-layout.show-editor.note-mode-edit .note-editor-body textarea { flex: 1; min-height: 0; border: 0; border-radius: 0; font-size: 16px; line-height: 1.85; padding: 18px; }
   .btn-folders { display: inline-flex; }
 }
 @media (max-width: 760px) {
@@ -638,8 +648,8 @@ a { color: inherit; text-decoration: none; }
   .td-tags input { font-size: 13px; }
   .td-recur .recur-opt { padding: 8px 12px; font-size: 12px; }
   .drawer-foot .btn { height: 42px; font-size: 14px; border-radius: 12px; }
-  /* 手机端笔记全屏(B方案)：藏顶栏那行 + 显示悬浮退出X */
-  .btn-fullscreen { display: grid; }
+  /* 手机端笔记单视图(A方案)：隐藏B方案全屏按钮，由写/看切换替代 */
+  .btn-fullscreen { display: none; }
   .notes-layout.show-fullscreen .note-editor-head { display: none; }
   .notes-layout.show-fullscreen .note-editor { position: relative; }
   .notes-layout.show-fullscreen .note-fullscreen-exit { display: grid; }
@@ -848,6 +858,7 @@ a { color: inherit; text-decoration: none; }
             <div class="note-editor-head">
               <button class="icon-btn note-back" id="btnNoteBack" title="返回笔记列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
               <input class="title" id="noteTitle" placeholder="给这篇起个名…" />
+              <button class="icon-btn btn-note-mode" id="btnNoteMode" title="切换写 / 看">写</button>
               <button class="icon-btn" id="btnPinNote" title="置顶"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-2 7h-2z"/><path d="M7 10h10l-2 7H9z"/></svg></button>
               <button class="icon-btn" id="btnLockNote" title="加密"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
               <button class="icon-btn" id="btnExportNote" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>
@@ -1049,7 +1060,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.41"; // 单文件内联版：①syncLoad 按本地 _dirty 标记合并防覆盖 ②待办标题/笔记内容上云加密 ③轮询3秒+未记住登录也秒开
+const APP_VERSION = "V1.0.42"; // 单文件内联版：①syncLoad 按本地 _dirty 标记合并防覆盖 ②待办标题/笔记内容上云加密 ③轮询3秒+未记住登录也秒开 ④手机端备忘录改单视图(写/看一键切换,电脑端三栏不动)
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1932,6 +1943,7 @@ function renderNoteEditor() {
     $("#noteEditorEmpty").classList.add("hidden");
     $("#noteEditorBody").classList.remove("hidden");
     $("#noteEditorBody").style.display = "flex";
+    setNoteMode("edit");
     if ($("#noteTitle").value !== "") $("#noteTitle").value = "";
     if ($("#noteContent").value !== "") $("#noteContent").value = "";
     $("#btnPinNote").classList.remove("is-on");
@@ -1950,6 +1962,8 @@ function renderNoteEditor() {
   $("#noteEditorEmpty").classList.add("hidden");
   $("#noteEditorBody").classList.remove("hidden");
   $("#noteEditorBody").style.display = "flex";
+  const isPhone = window.innerWidth <= 1100;
+  setNoteMode(isPhone ? "view" : "edit");
 
   if ($("#noteTitle").value !== (n.title||"")) $("#noteTitle").value = n.title || "";
   if ($("#noteContent").value !== (n.content||"")) $("#noteContent").value = n.content || "";
@@ -1969,6 +1983,16 @@ function renderNoteEditor() {
       n.folder = fsel.value; n.updatedAt = nowISO(); n._dirty = true;
       saveLocal(); scheduleSync(); renderNotes(); toast("已移动");
     };
+  }
+}
+function setNoteMode(mode) {
+  const nl = $("#notesLayout"); if (!nl) return;
+  nl.classList.toggle("note-mode-view", mode === "view");
+  nl.classList.toggle("note-mode-edit", mode === "edit");
+  const btn = $("#btnNoteMode");
+  if (btn) {
+    btn.textContent = mode === "view" ? "写" : "看";
+    btn.classList.toggle("is-on", mode === "edit");
   }
 }
 function saveActiveNote() {
@@ -2011,6 +2035,11 @@ $("#btnNoteBack").onclick = () => {
   if (layout) { layout.classList.remove("show-editor"); layout.classList.remove("show-fullscreen"); }
   renderNoteEditor();
   renderNotes();
+};
+$("#btnNoteMode").onclick = () => {
+  const nl = $("#notesLayout"); if (!nl) return;
+  saveActiveNote(); // 切之前先把当前内容落盘、刷新预览
+  setNoteMode(nl.classList.contains("note-mode-edit") ? "view" : "edit");
 };
 // 手机端笔记全屏 B 方案
 $("#btnNoteFullscreen").onclick = () => {
