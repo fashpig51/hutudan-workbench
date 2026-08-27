@@ -326,7 +326,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------- 备忘录（notes） ---------- */
 /* ===== 备忘录全新清单版（V1.0.57 起重做；旧 .notes-*/.md-* 规则已弃用但保留不删） ===== */
-.memo-layout { display: grid; grid-template-columns: 240px 1fr 1.15fr; gap: 18px; height: calc(100vh - var(--topbar-h) - 150px); min-height: 420px; }
+.memo-layout { display: grid; grid-template-columns: 320px 1fr; gap: 18px; height: calc(100vh - var(--topbar-h) - 150px); min-height: 420px; }
 .memo-side { background: var(--card); border-radius: var(--radius); padding: 14px; border: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
 .memo-side-head { font-size: 12px; font-weight: 700; color: var(--ink-muted); padding: 4px 8px 8px; letter-spacing: .04em; }
 .memo-folders { display: flex; flex-direction: column; gap: 2px; }
@@ -369,6 +369,9 @@ a { color: inherit; text-decoration: none; }
 .memo-detail-head .icon-btn:hover { background: var(--card-2); color: var(--ink); }
 .memo-detail-head .icon-btn svg { width: 18px; height: 18px; }
 .memo-detail-head .icon-btn.is-on { color: var(--orange); }
+.memo-textarea { flex: 1; width: 100%; border: 0; resize: none; padding: 18px 20px; font-size: 15px; line-height: 1.7; color: var(--ink); background: transparent; font-family: inherit; }
+.memo-textarea:focus { outline: none; }
+.memo-textarea::placeholder { color: var(--ink-muted); opacity: .7; }
 .memo-items { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .memo-empty-hint { color: var(--ink-muted); font-size: 14px; text-align: center; padding: 30px 10px; }
 .memo-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; }
@@ -398,18 +401,12 @@ a { color: inherit; text-decoration: none; }
 .btn-memo-folders { display: none; }
 @media (max-width: 1100px) {
   .memo-layout { grid-template-columns: 1fr; height: calc(100vh - var(--topbar-h) - 120px); }
-  .memo-side { display: none; }
   .memo-detail { display: none; }
-  .memo-layout.show-folders .memo-list { display: none; }
-  .memo-layout.show-folders .memo-side { display: flex; }
-  .memo-layout.show-detail .memo-list, .memo-layout.show-detail .memo-side { display: none; }
+  .memo-layout.show-detail .memo-list { display: none; }
   .memo-layout.show-detail .memo-detail { display: flex; }
-  .memo-row { padding: 9px 10px; }
-  .memo-card-del { opacity: 1; }
-  .btn-memo-folders { display: inline-flex; }
 }
 @media (max-width: 760px) {
-  .memo-text { font-size: 16px; }
+  .memo-textarea { font-size: 16px; padding: 16px; }
   .memo-title { font-size: 19px; }
   .memo-card { padding: 16px; border-radius: 15px; }
   .memo-card-title { font-size: 16px; }
@@ -923,7 +920,7 @@ a { color: inherit; text-decoration: none; }
       <div id="todoEmpty" class="hidden"></div>
     </section>
 
-    <!-- 备忘录（全新清单版 V1.0.57） -->
+    <!-- 备忘录（极简纯文本版 V1.0.60） -->
     <section class="view" id="view-notes">
       <div class="view-head">
         <div>
@@ -931,15 +928,10 @@ a { color: inherit; text-decoration: none; }
           <div class="view-sub" id="memoSub">0 篇笔记</div>
         </div>
         <div class="row">
-          <button class="btn btn-ghost btn-memo-folders" id="btnMemoFolders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>文件夹</button>
           <button class="btn btn-primary" id="btnNewNote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建笔记</button>
         </div>
       </div>
       <div class="memo-layout" id="memoLayout">
-        <aside class="memo-side" id="memoSide">
-          <div class="memo-side-head">文件夹</div>
-          <div class="memo-folders" id="memoFolders"></div>
-        </aside>
         <div class="memo-list" id="memoListPane">
           <div class="memo-list-head"><input id="memoSearch" placeholder="搜索笔记…" /></div>
           <div class="memo-list-body" id="memoListBody"></div>
@@ -952,22 +944,10 @@ a { color: inherit; text-decoration: none; }
           <div class="memo-detail-body hidden" id="memoDetailBody">
             <div class="memo-detail-head">
               <button class="icon-btn memo-back" id="btnMemoBack" title="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-              <input class="memo-title" id="memoTitle" placeholder="给这篇起个名…" />
-              <button class="icon-btn" id="btnMemoMenu" title="更多"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
-              <div class="memo-menu" id="memoMenu" hidden>
-                <button data-act="star">标星 / 取消标星</button>
-                <button data-act="pin">置顶 / 取消置顶</button>
-                <button data-act="lock">加密 / 取消加密</button>
-                <button data-act="export">导出</button>
-                <button data-act="del" class="danger">删除</button>
-              </div>
+              <input class="memo-title" id="memoTitle" placeholder="标题（可留空）" />
+              <button class="icon-btn" id="btnDelNote" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
             </div>
-            <div class="memo-items" id="memoItems"></div>
-            <div class="memo-detail-foot">
-              <button class="btn memo-add" id="btnAddItem">＋ 添加一项</button>
-              <span class="memo-stat" id="memoStat"></span>
-              <select id="memoFolderSelect" class="memo-folder-select"></select>
-            </div>
+            <textarea class="memo-textarea" id="memoBody" placeholder="在这里写…"></textarea>
           </div>
         </div>
       </div>
@@ -1149,7 +1129,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.59"; // 单文件内联版：㉑备忘录按苹果备忘录风格重做——每行只留一个小圆圈（点一下在「没勾→打勾→标找不到」三态切换），删除键仅在编辑该行时出现，置顶/标星/加密/导出/删除全收进右上角「⋯」菜单；旧笔记打开自动把「书名 + ❌/✔️ 备注」合并成一行
+const APP_VERSION = "V1.0.60"; // 单文件内联版：㉒备忘录彻底重做为极简纯文本记事本——删除全部勾选框/圆圈/状态按钮/清单功能，改为「左侧笔记列表 + 右侧大文本框」，点开即改、实时保存同步；旧清单 JSON 笔记打开自动还原为纯文字，老文本笔记原样显示；去掉文件夹栏，UI 极简
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1556,7 +1536,7 @@ function startAutoSync() {
 /* ---------------------- 路由 ---------------------- */
 function go(tab, opts) {
   if (tab !== "notes" && state.select.noteId === "__new__") state.select.noteId = null;
-  else if (tab === "notes") { const nl = $("#memoLayout"); if (nl) { nl.classList.remove("show-detail"); nl.classList.remove("show-folders"); } }
+  else if (tab === "notes") { const nl = $("#memoLayout"); if (nl) { nl.classList.remove("show-detail"); } }
   state.filter.tab = tab;
   $$(".view").forEach(v => v.classList.toggle("is-active", v.id === "view-" + tab));
   $$(".nav-btn").forEach(b => b.classList.toggle("is-active", b.dataset.go === tab));
@@ -1913,61 +1893,21 @@ $("#btnNewTodo").onclick = () => openTodoDrawer();
 $("#todoSearch").oninput = () => renderTodos();
 $$(".filter-chip").forEach(c => c.onclick = () => { state.filter.todo = c.dataset.filter; renderTodos(); });
 
-/* ---------------------- 渲染：备忘录 ---------------------- */
-function renderFolders() {
-  state.filter.noteFolder = state.filter.noteFolder || "_all";
-  const counts = { _all: state.data.notes.length, _pin: state.data.notes.filter(n=>n.pinned).length };
-  state.data.folders.forEach(f => counts[f.id] = state.data.notes.filter(n => n.folder === f.id).length);
-  const items = [
-    { id:"_all", name:"全部笔记" },
-    { id:"_pin", name:"置顶" },
-  ].concat(state.data.folders.map(f => ({ id:f.id, name:f.name })));
-  $("#memoFolders").innerHTML = items.map(f => `
-    <div class="memo-folder ${state.filter.noteFolder===f.id?'is-active':''}" data-fold="${f.id}">
-      <span class="memo-folder-name">${escHtml(f.name)}</span>
-      <span class="memo-folder-count">${counts[f.id]||0}</span>
-      ${(f.id!=="_all"&&f.id!=="_pin")?`<button class="memo-folder-del" data-del="${f.id}" title="删除">✕</button>`:''}
-    </div>`).join("") + `
-    <div class="memo-folder-add">
-      <input id="memoNewFolder" placeholder="新建文件夹…" />
-      <button class="btn btn-sm btn-primary" id="btnAddFolder">＋</button>
-    </div>`;
-  $("#memoFolders").querySelectorAll("[data-fold]").forEach(el => el.onclick = (e) => {
-    if (e.target.closest("[data-del]")) return;
-    state.filter.noteFolder = el.dataset.fold;
-    renderNotes(); renderFolders();
-  });
-  $("#memoFolders").querySelectorAll("[data-del]").forEach(el => el.onclick = (e) => {
-    e.stopPropagation();
-    const fid = el.dataset.del;
-    if (fid === "f_default" || fid === "f_inbox") return;
-    const f = state.data.folders.find(x => x.id === fid); if (!f) return;
-    const cnt = state.data.notes.filter(n => n.folder === fid).length;
-    const tip = cnt>0 ? `删除「${f.name}」后，里面的 ${cnt} 篇笔记会移到「默认」，确定？` : `确定删除「${f.name}」？`;
-    if (!window.confirm(tip)) return;
-    state.data.notes.forEach(n => { if (n.folder === fid) n.folder = "f_default"; });
-    state.data.folders = state.data.folders.filter(x => x.id !== fid);
-    if (state.filter.noteFolder === fid) state.filter.noteFolder = "_all";
-    saveLocal(); scheduleSync(); renderFolders(); renderNotes(); toast("已删除文件夹");
-  });
-  const addBtn = $("#btnAddFolder");
-  if (addBtn) addBtn.onclick = () => {
-    const inp = $("#memoNewFolder"); const v = inp.value.trim(); if (!v) return;
-    if (state.data.folders.length >= 12) { toast("文件夹已达上限(12)"); return; }
-    state.data.folders.push({ id:"f_"+uid(), name:v });
-    saveLocal(); scheduleSync(); renderFolders();
-  };
-  const inp = $("#memoNewFolder");
-  if (inp) inp.onkeydown = (e) => { if (e.key==="Enter") $("#btnAddFolder")?.click(); };
+/* ---------------------- 渲染：备忘录（极简纯文本版 V1.0.60） ---------------------- */
+function noteContentToText(content){
+  if (!content) return "";
+  let obj = null;
+  try { obj = JSON.parse(content); } catch(e){}
+  if (obj && obj.type === "checklist" && Array.isArray(obj.items)) {
+    return obj.items.map(it => (it.text || "").replace(/\s+$/,"")).join("\n");
+  }
+  return String(content);
 }
 function renderNotes() {
-  state.filter.noteFolder = state.filter.noteFolder || "_all";
   const q = ($("#memoSearch").value || "").trim().toLowerCase();
   let list = state.data.notes.slice();
-  if (state.filter.noteFolder === "_pin") list = list.filter(n => n.pinned);
-  else if (state.filter.noteFolder && state.filter.noteFolder !== "_all") list = list.filter(n => n.folder === state.filter.noteFolder);
   if (q) list = list.filter(n => (n.title||"").toLowerCase().includes(q) || (n.content||"").toLowerCase().includes(q));
-  list.sort((a, b) => (b.pinned?1:0)-(a.pinned?1:0) || (b.updatedAt||"").localeCompare(a.updatedAt||""));
+  list.sort((a, b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
   const body = $("#memoListBody");
   if (!list.length) {
     body.innerHTML = `<div class="memo-empty">${state.data.notes.length ? "没有匹配的笔记" : "还没有笔记，点右上角\"新建笔记\""}</div>`;
@@ -1975,18 +1915,12 @@ function renderNotes() {
     return;
   }
   body.innerHTML = list.map(n => {
-    const items = noteItems(n);
-    const total = items.length;
-    const done = items.filter(x=>x.done).length;
-    const star = items.filter(x=>x.star).length;
-    const summary = total ? `✓ ${done}/${total}` : (n.locked ? "已加密" : (n.content ? escHtml(String(n.content).replace(/\n/g," ").slice(0,60)) : "空笔记"));
+    const text = noteContentToText(n.content).replace(/\n/g, " ").trim();
+    const summary = text ? escHtml(text.slice(0, 80)) : (n.locked ? "已加密" : "空笔记");
     return `<div class="memo-card ${state.select.noteId===n.id?'is-active':''}" data-note="${n.id}">
-      <div class="memo-card-main">
-        <div class="memo-card-title">${n.star ? '<span class="star">★</span>' : ''}${escHtml(n.title || "(无标题)")}</div>
-        <div class="memo-card-sum">${summary}</div>
-        <div class="memo-card-time">${fmtDate(n.updatedAt)}${n.locked?' · 已加密':''}${n.pinned?' · 置顶':''}</div>
-      </div>
-      <button class="memo-card-del" data-del="${n.id}" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+      <div class="memo-card-title">${escHtml(n.title || "(无标题)")}</div>
+      <div class="memo-card-sum">${summary}</div>
+      <div class="memo-card-time">${fmtDate(n.updatedAt)}</div>
     </div>`;
   }).join("");
   body.querySelectorAll("[data-note]").forEach(el => el.onclick = () => {
@@ -1995,93 +1929,27 @@ function renderNotes() {
     if (window.innerWidth <= 1100) $("#memoLayout").classList.add("show-detail");
     renderNotes();
   });
-  body.querySelectorAll("[data-del]").forEach(el => el.onclick = (e) => {
-    e.stopPropagation();
-    const id = el.dataset.del;
-    const nn = state.data.notes.find(x => x.id === id);
-    confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(nn?nn.title||"(无标题)":"")}」吗？`, danger:true, onYes: () => {
-      state.data.notes = state.data.notes.filter(x => x.id !== id);
-      addPendingDelete("notes", id);
-      if (state.select.noteId === id) state.select.noteId = state.data.notes[0]?.id || null;
-      saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
-    }});
-  });
-  $("#memoSub").textContent = `${state.data.notes.length} 篇笔记 · 当前 ${list.length}`;
+  $("#memoSub").textContent = `${state.data.notes.length} 篇笔记`;
 }
 function renderNoteEditor() {
   const isNew = state.select.noteId === "__new__";
   const n = isNew ? null : state.data.notes.find(x => x.id === state.select.noteId);
-  _memoCurrentNote = n || null;
   const empty = $("#memoDetailEmpty"), body = $("#memoDetailBody");
   if (!n && !isNew) { empty.classList.remove("hidden"); body.classList.add("hidden"); return; }
   empty.classList.add("hidden"); body.classList.remove("hidden");
-  if ($("#memoMenu")) $("#memoMenu").hidden = true;
+  const ta = $("#memoBody");
   if (isNew) {
     if ($("#memoTitle").value !== "") $("#memoTitle").value = "";
-    _memoItems = [];
-    renderMemoItems();
-    fillMemoFolderSelect("");
-    return;
+    ta.value = "";
+  } else {
+    if ($("#memoTitle").value !== (n.title||"")) $("#memoTitle").value = n.title || "";
+    ta.value = noteContentToText(n.content);
   }
-  if ($("#memoTitle").value !== (n.title||"")) $("#memoTitle").value = n.title || "";
-  _memoItems = noteItems(n);
-  renderMemoItems();
-  fillMemoFolderSelect(n.folder);
+  if (isNew) setTimeout(() => { $("#memoTitle").focus(); }, 50);
 }
-/* ========== 备忘录：结构化清单数据工具 ========== */
-function escAttr(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function noteItems(n){
-  const c = (n && n.content) || "";
-  if (!c) return [];
-  try { const o = JSON.parse(c); if (o && o.type==="checklist" && Array.isArray(o.items)) return o.items; } catch(e){}
-  return noteTextToItems(c);
-}
-function noteItemsToContent(items){ return JSON.stringify({ v:2, type:"checklist", items: items||[] }); }
-function noteTextToItems(text){
-  const lines = String(text).split(/\r?\n/);
-  const out = [];
-  let prev = null;
-  for (let raw of lines){
-    if (!raw.trim()) continue;
-    const original = raw;
-    const indent = /^( {2,}|\t)/.test(raw);
-    let s = raw.replace(/^\s+/, "");
-    let st = "";
-    if (/^❌/.test(s)) { st = "missing"; s = s.replace(/^❌\s*/, ""); }
-    else if (/^✔️/.test(s)) { st = "bought"; s = s.replace(/^✔️\s*/, ""); }
-    let star = false;
-    if (/^★/.test(s)) { star = true; s = s.replace(/^★\s*/, ""); }
-    const m = s.match(/^(\d+)([．.、])\s*(.*)$/);
-    const title = m ? m[3] : s;
-    const hasNumber = !!m;
-    // 状态行或缩进备注行：合并到上一项，不再单独占一行
-    const isStatusOrRemark = (st !== "" || indent) && !hasNumber;
-    if (isStatusOrRemark && prev) {
-      if (st === "missing") prev.status = "missing";
-      else if (st === "bought") prev.done = true;
-      const extra = s.trim();
-      if (extra && !prev.text.includes(extra)) prev.text = (prev.text ? prev.text + " · " : "") + extra;
-      continue;
-    }
-    const item = {
-      id: uid(),
-      text: (title.trim() || original.trim()),
-      done: st === "bought",
-      star: star,
-      status: st === "missing" ? "missing" : "",
-      indent: 0
-    };
-    out.push(item); prev = item;
-  }
-  return out;
-}
-let _memoItems = [];
-let _memoSaveTimer = null;
-let _memoCurrentNote = null;
 function ensureMemoNote(){
   if (state.select.noteId === "__new__" || !state.select.noteId) {
-    const folder = (($("#memoFolderSelect") && $("#memoFolderSelect").value) || (state.data.folders[0] && state.data.folders[0].id) || "f_default");
-    const n = { id: uid(), title:"", content: noteItemsToContent([]), folder, pinned:false, locked:false, createdAt: nowISO(), updatedAt: nowISO(), _dirty: true };
+    const n = { id: uid(), title:"", content:"", folder:(state.data.folders[0] && state.data.folders[0].id) || "f_default", pinned:false, locked:false, createdAt: nowISO(), updatedAt: nowISO(), _dirty: true };
     state.data.notes.unshift(n);
     state.select.noteId = n.id;
     return n;
@@ -2091,140 +1959,33 @@ function ensureMemoNote(){
 function memoSaveNow(){
   const n = ensureMemoNote(); if (!n) return;
   n.title = $("#memoTitle").value;
-  n.content = noteItemsToContent(_memoItems);
+  n.content = $("#memoBody").value;
   n.updatedAt = nowISO();
   if (!n.createdAt) n.createdAt = n.updatedAt;
   n._dirty = true;
   saveLocal(); scheduleSync();
-  renderNotes(); updateMemoStat();
+  renderNotes();
 }
+let _memoSaveTimer = null;
 function memoSaveDebounced(){ clearTimeout(_memoSaveTimer); _memoSaveTimer = setTimeout(memoSaveNow, 300); }
-function updateMemoStat(){
-  const total = _memoItems.length;
-  const done = _memoItems.filter(x=>x.done).length;
-  const stat = $("#memoStat"); if (stat) stat.textContent = total ? `${done}/${total} 完成` : "";
-}
-function renderMemoItems(){
-  const box = $("#memoItems"); if (!box) return;
-  // 数据保护：如果清单项全存在但文字全空，且原笔记内容还有字，尝试从原内容恢复
-  const allEmpty = _memoItems.length && _memoItems.every(it => !(it.text||"").trim());
-  if (allEmpty && _memoCurrentNote && (_memoCurrentNote.content||"").trim()) {
-    const raw = _memoCurrentNote.content;
-    try {
-      const o = JSON.parse(raw);
-      if (o && o.type === "checklist" && Array.isArray(o.items)) {
-        _memoItems = o.items.map((it, idx) => ({
-          id: it.id || uid(),
-          text: (it.text||"").trim() ? it.text : `第 ${idx+1} 项（文字丢失）`,
-          done: !!it.done, star: !!it.star, status: it.status || "", indent: 0
-        }));
-      }
-    } catch(e) {
-      _memoItems = noteTextToItems(raw);
-    }
-  }
-  if (!_memoItems.length) {
-    box.innerHTML = `<div class="memo-empty-hint">还没有内容，点下面「＋ 添加一项」开始</div>`;
-    updateMemoStat(); return;
-  }
-  box.innerHTML = _memoItems.map((it, i) => {
-    const vis = it.status === "missing" ? "is-missing" : it.done ? "is-done" : "";
-    return `<div class="memo-row${it.done?' is-done':''}" data-i="${i}">
-      <button class="memo-check ${vis}" data-act="check" aria-label="标记"></button>
-      <input class="memo-text" data-act="text" value="${escAttr(it.text)}" placeholder="写点什么…" />
-      <button class="memo-row-del" data-act="del" title="删除" aria-label="删除">✕</button>
-    </div>`;
-  }).join("");
-  updateMemoStat();
-}
-function fillMemoFolderSelect(folder){
-  const sel = $("#memoFolderSelect"); if (!sel) return;
-  sel.innerHTML = state.data.folders.map(f => `<option value="${escAttr(f.id)}"${f.id===folder?' selected':''}>${escAttr(f.name)}</option>`).join("");
-}
 
-/* ========== 备忘录：事件绑定（方案 A：干净版） ========== */
-function memoCycleCheck(it){
-  // 圆圈三态：没勾 → 打勾(完成/已采购) → 标找不到 → 没勾
-  const vis = it.status === "missing" ? "missing" : (it.done ? "done" : "none");
-  if (vis === "none") { it.done = true; it.status = ""; }
-  else if (vis === "done") { it.done = false; it.status = "missing"; }
-  else { it.done = false; it.status = ""; }
-}
-$("#memoItems").addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-act]"); if (!btn) return;
-  const row = btn.closest(".memo-row"); if (!row) return;
-  const i = +row.dataset.i;
-  const item = _memoItems[i]; if (!item) return;
-  const act = btn.dataset.act;
-  if (act === "check") memoCycleCheck(item);
-  else if (act === "del") _memoItems.splice(i, 1);
-  renderMemoItems(); memoSaveNow();
-});
-$("#memoItems").addEventListener("input", (e) => {
-  const inp = e.target.closest('[data-act="text"]'); if (!inp) return;
-  const row = inp.closest(".memo-row"); if (!row) return;
-  const i = +row.dataset.i;
-  if (_memoItems[i]) { _memoItems[i].text = inp.value; memoSaveDebounced(); }
-});
+/* 备忘录：事件绑定 */
+$("#memoBody").oninput = () => { ensureMemoNote(); memoSaveDebounced(); };
 $("#memoTitle").oninput = () => { ensureMemoNote(); memoSaveDebounced(); };
-$("#btnAddItem").onclick = () => {
-  ensureMemoNote();
-  _memoItems.push({ id: uid(), text:"", done:false, star:false, status:"", indent:0 });
-  renderMemoItems(); memoSaveNow();
-  const ins = $("#memoItems").querySelectorAll(".memo-text");
-  const last = ins[ins.length-1]; if (last) last.focus();
-};
-$("#memoFolderSelect").onchange = () => {
-  const n = ensureMemoNote(); if (!n) return;
-  n.folder = $("#memoFolderSelect").value; n._dirty = true;
-  saveLocal(); scheduleSync(); renderNotes(); renderFolders();
-};
 $("#btnMemoBack").onclick = () => {
   state.select.noteId = null;
   $("#memoLayout").classList.remove("show-detail");
   renderNoteEditor(); renderNotes();
 };
-/* 右上角「⋯」菜单 */
-$("#btnMemoMenu").onclick = (e) => { e.stopPropagation(); const m = $("#memoMenu"); if (m) m.hidden = !m.hidden; };
-document.addEventListener("click", (e) => {
-  const m = $("#memoMenu"); if (!m || m.hidden) return;
-  if (!m.contains(e.target) && e.target !== $("#btnMemoMenu")) m.hidden = true;
-});
-$("#memoMenu").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-act]"); if (!b) return;
-  const act = b.dataset.act;
-  const n = ensureMemoNote(); if (!n) return;
-  if (act === "star") { n.star = !n.star; n._dirty = true; toast(n.star ? "已标星" : "已取消标星"); }
-  else if (act === "pin") { n.pinned = !n.pinned; n._dirty = true; toast(n.pinned ? "已置顶" : "已取消置顶"); }
-  else if (act === "lock") {
-    if (!n.locked) {
-      modal({ title:"加密这篇笔记？", desc:"加密后再次打开需要输入口令（本机口令）。", actions:[
-        { label:"取消", cls:"btn" },
-        { label:"加密", cls:"btn btn-orange", onClick: () => { n.locked = true; n.updatedAt = nowISO(); n._dirty = true; saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已加密"); } }
-      ]});
-    } else { n.locked = false; n.updatedAt = nowISO(); n._dirty = true; saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已取消加密"); }
-  }
-  else if (act === "export") {
-    let txt = `# ${n.title||"(无标题)"}\n\n`;
-    for (const it of _memoItems) {
-      const mark = it.status === "missing" ? "❌ " : it.done ? "✔️ " : "";
-      txt += `- ${mark}${it.text}\n`;
-    }
-    const blob = new Blob([txt], { type:"text/markdown;charset=utf-8" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (n.title||"note") + ".md"; a.click();
-    toast("已导出");
-  }
-  else if (act === "del") {
-    confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(n.title||"(无标题)")}」吗？`, danger:true, onYes: () => {
-      state.data.notes = state.data.notes.filter(x => x.id !== n.id);
-      addPendingDelete("notes", n.id);
-      state.select.noteId = state.data.notes[0]?.id || null;
-      saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
-    }});
-  }
-  if ($("#memoMenu")) $("#memoMenu").hidden = true;
-  saveLocal(); scheduleSync(); renderNotes();
-});
+$("#btnDelNote").onclick = () => {
+  const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
+  confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(n.title||"(无标题)")}」吗？`, danger:true, onYes: () => {
+    state.data.notes = state.data.notes.filter(x => x.id !== n.id);
+    addPendingDelete("notes", n.id);
+    state.select.noteId = state.data.notes[0]?.id || null;
+    saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); toast("已删除");
+  }});
+};
 $("#btnNewNote").onclick = () => {
   state.select.noteId = "__new__";
   renderNotes(); renderNoteEditor();
@@ -2232,55 +1993,7 @@ $("#btnNewNote").onclick = () => {
   setTimeout(() => { $("#memoTitle").focus(); }, 50);
 };
 $("#memoSearch").oninput = () => renderNotes();
-$("#btnMemoFolders").onclick = () => { $("#memoLayout").classList.toggle("show-folders"); };
 
-/* 极简 Markdown 渲染（标题 / 列表 / 引用 / 代码 / 粗体 / 斜体 / 行内代码 / 链接） */
-function renderMarkdown(md) {
-  if (!md) return '<div style="color:var(--ink-muted)">左侧写笔记，右侧自动预览。</div>';
-  let html = escHtml(md);
-  // 代码块
-  html = html.replace(/```([\s\S]*?)```/g, (m, c) => `<pre class="md-pre">${c}</pre>`);
-  // 标题
-  html = html.replace(/^### (.*)$/gm, '<div class="md-h3">$1</div>');
-  html = html.replace(/^## (.*)$/gm,  '<div class="md-h2">$1</div>');
-  html = html.replace(/^# (.*)$/gm,   '<div class="md-h1">$1</div>');
-  // 引用
-  html = html.replace(/^&gt; (.*)$/gm, '<blockquote class="md-blockquote">$1</blockquote>');
-  // 列表（保留你写的符号并缩进分组；有序数字项前面加一个圆点）
-  // 放宽识别：行首允许空白；数字后允许半角点/全角点/顿号——否则老板笔记里带空格或全角符号时整篇认不出，圆点缩进全失效
-  html = html.replace(/^[ \t]*(\d+)([．.、])\s*(.*)$/gm, '<div class="md-item"><span class="md-dot">•</span> $1$2 $3</div>');
-  html = html.replace(/^[ \t]*([★-])\s*(.*)$/gm, '<div class="md-item">$1 $2</div>');
-  // 列表项下面的普通行（子说明）缩进——必须先做，此时 md-item 仍是独立行，子说明检测才能识别到上一行是 item
-  {
-    const _lines = html.split("\n");
-    let _inItem = false;
-    for (let i = 0; i < _lines.length; i++) {
-      const _struct = /^<(h\d|div|blockquote|pre)/.test(_lines[i]) || /^\s*$/.test(_lines[i]);
-      if (/^<div class="md-item">/.test(_lines[i])) { _inItem = true; continue; }
-      if (/^\s*$/.test(_lines[i])) { _inItem = false; continue; }
-      if (_inItem && !_struct) {
-        // 子说明行首的空格/制表符统一清掉，缩进只由 CSS 控制，避免有的行多两格
-        _lines[i] = `<div class="md-sub">${_lines[i].replace(/^[ \t]+/, "")}</div>`;
-      }
-    }
-    html = _lines.join("\n");
-  }
-  // 再把连续的列表项包进 md-list（缩进分组容器）——必须放在子说明之后，否则会把 md-item 行嵌进 md-list 同一行，破坏子说明检测
-  html = html.replace(/(<div class="md-item">.*<\/div>(\n|$))+/g, m => `<div class="md-list">${m}</div>`);
-  // 粗体/斜体
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
-  // 行内代码
-  html = html.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>');
-  // 链接
-  html = html.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // 段落
-  html = html.split(/\n{2,}/).map(p => {
-    if (/^<(h\d|ul|ol|pre|blockquote|div)/.test(p.trim())) return p;
-    return `<p class="md-p">${p.replace(/\n/g,"<br>")}</p>`;
-  }).join("\n");
-  return html;
-}
 
 /* ---------------------- 渲染：番茄钟 ---------------------- */
 function renderPomo() {
@@ -2531,7 +2244,6 @@ function renderSettings() {
 function render() {
   renderHome();
   renderTodos();
-  renderFolders();
   renderNotes();
   renderNoteEditor();
   renderPomo();
