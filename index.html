@@ -376,8 +376,9 @@ a { color: inherit; text-decoration: none; }
 .memo-row.is-done .memo-text { text-decoration: line-through; color: var(--ink-muted); }
 .memo-check { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line); background: transparent; color: #1a1a1a; font-size: 13px; cursor: pointer; display: grid; place-items: center; margin-top: 2px; transition: background .15s, border-color .15s; }
 .memo-check.is-on { background: var(--yellow); border-color: var(--yellow); }
-.memo-text { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 15px; line-height: 1.5; padding: 3px 0; color: var(--ink); }
+.memo-text { flex: 1; min-width: 80px; width: 100%; border: 0; background: transparent; font-size: 15px; line-height: 1.5; padding: 3px 0; color: var(--ink); -webkit-appearance: none; appearance: none; border-radius: 0; }
 .memo-text:focus { outline: none; }
+.memo-text::placeholder { color: var(--ink-muted); opacity: .7; }
 .memo-star { width: 28px; height: 28px; flex-shrink: 0; border: 0; background: transparent; color: var(--ink-muted); font-size: 17px; cursor: pointer; border-radius: 8px; }
 .memo-star.is-on { color: #f5a623; }
 .memo-status { width: 30px; height: 28px; flex-shrink: 0; border: 1px solid var(--line-soft); background: transparent; border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--ink-muted); display: grid; place-items: center; }
@@ -1147,7 +1148,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.57"; // 单文件内联版：⑲备忘录全新重做——从「文本+预览」改为「结构化清单」，笔记内容改存 JSON 清单（可勾选/标星/状态❌✔️/缩进子项/上下移/删除），旧纯文本笔记自动转清单；★❌✔️变为可点按钮，不再手打符号
+const APP_VERSION = "V1.0.58"; // 单文件内联版：⑳修复手机端备忘录清单项文字不显示——给输入框加最小宽度和统一外观，转换旧笔记时保护文字不被前缀剥离丢空， checklist JSON 全空时自动从原内容恢复
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2009,6 +2010,7 @@ function renderNotes() {
 function renderNoteEditor() {
   const isNew = state.select.noteId === "__new__";
   const n = isNew ? null : state.data.notes.find(x => x.id === state.select.noteId);
+  _memoCurrentNote = n || null;
   const empty = $("#memoDetailEmpty"), body = $("#memoDetailBody");
   if (!n && !isNew) { empty.classList.remove("hidden"); body.classList.add("hidden"); return; }
   empty.classList.add("hidden"); body.classList.remove("hidden");
@@ -2042,6 +2044,7 @@ function noteTextToItems(text){
   const out = [];
   for (let raw of lines){
     if (!raw.trim()) continue;
+    const originalRaw = raw;
     const indented = /^( {2,}|\t)/.test(raw);
     let t = raw.replace(/^\s+/, "");
     let status = "";
@@ -2051,6 +2054,8 @@ function noteTextToItems(text){
     if (/^★/.test(t)) { star = true; t = t.replace(/^★\s*/, ""); }
     const m = t.match(/^(\d+)([．.、])\s*(.*)$/);
     if (m) t = m[3];
+    // 保护：如果去掉状态/序号前缀后文字空了，就把原始行作为文字，避免丢内容
+    if (!t.trim()) t = originalRaw.trim();
     const isSub = status !== "" || indented;
     out.push({ id: uid(), text: t, done:false, star: isSub?false:star, status: isSub?status:"", indent: isSub?1:0 });
   }
@@ -2058,6 +2063,7 @@ function noteTextToItems(text){
 }
 let _memoItems = [];
 let _memoSaveTimer = null;
+let _memoCurrentNote = null;
 function ensureMemoNote(){
   if (state.select.noteId === "__new__" || !state.select.noteId) {
     const folder = (($("#memoFolderSelect") && $("#memoFolderSelect").value) || (state.data.folders[0] && state.data.folders[0].id) || "f_default");
@@ -2087,6 +2093,23 @@ function updateMemoStat(){
 }
 function renderMemoItems(){
   const box = $("#memoItems"); if (!box) return;
+  // 数据保护：如果清单项全存在但文字全空，且原笔记内容还有字，尝试从原内容恢复
+  const allEmpty = _memoItems.length && _memoItems.every(it => !(it.text||"").trim());
+  if (allEmpty && _memoCurrentNote && (_memoCurrentNote.content||"").trim()) {
+    const raw = _memoCurrentNote.content;
+    try {
+      const o = JSON.parse(raw);
+      if (o && o.type === "checklist" && Array.isArray(o.items)) {
+        _memoItems = o.items.map((it, idx) => ({
+          id: it.id || uid(),
+          text: (it.text||"").trim() ? it.text : `第 ${idx+1} 项（文字丢失）`,
+          done: !!it.done, star: !!it.star, status: it.status || "", indent: it.indent || 0
+        }));
+      }
+    } catch(e) {
+      _memoItems = noteTextToItems(raw);
+    }
+  }
   if (!_memoItems.length) {
     box.innerHTML = `<div class="memo-empty-hint">还没有清单项，点下面「＋ 添加一项」开始</div>`;
     updateMemoStat(); return;
