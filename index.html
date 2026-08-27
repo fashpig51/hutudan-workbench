@@ -363,7 +363,7 @@ a { color: inherit; text-decoration: none; }
 .memo-detail-empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: var(--ink-muted); padding: 30px; text-align: center; }
 .memo-detail-empty svg { width: 52px; height: 52px; opacity: .35; }
 .memo-detail-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.memo-detail-head { display: flex; align-items: center; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); }
+.memo-detail-head { position: relative; display: flex; align-items: center; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); }
 .memo-title { flex: 1; font-size: 18px; font-weight: 700; height: 36px; padding: 0 8px; border: 0; background: transparent; color: var(--ink); }
 .memo-detail-head .icon-btn { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-muted); border: 0; background: transparent; cursor: pointer; }
 .memo-detail-head .icon-btn:hover { background: var(--card-2); color: var(--ink); }
@@ -371,31 +371,30 @@ a { color: inherit; text-decoration: none; }
 .memo-detail-head .icon-btn.is-on { color: var(--orange); }
 .memo-items { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .memo-empty-hint { color: var(--ink-muted); font-size: 14px; text-align: center; padding: 30px 10px; }
-.memo-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line-soft); }
-.memo-row.is-sub { margin-left: 34px; background: transparent; border-style: dashed; }
+.memo-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; }
+.memo-row:hover { background: var(--card-2); }
 .memo-row.is-done .memo-text { text-decoration: line-through; color: var(--ink-muted); }
-.memo-check { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line); background: transparent; color: #1a1a1a; font-size: 13px; cursor: pointer; display: grid; place-items: center; margin-top: 2px; transition: background .15s, border-color .15s; }
-.memo-check.is-on { background: var(--yellow); border-color: var(--yellow); }
-.memo-text { flex: 1; min-width: 80px; width: 100%; border: 0; background: transparent; font-size: 15px; line-height: 1.5; padding: 3px 0; color: var(--ink); -webkit-appearance: none; appearance: none; border-radius: 0; }
-.memo-text:focus { outline: none; }
+.memo-check { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line); background: transparent; cursor: pointer; display: grid; place-items: center; color: #fff; font-size: 13px; transition: background .15s, border-color .15s; }
+.memo-check.is-done { background: #2f8cff; border-color: #2f8cff; }
+.memo-check.is-missing { background: #e04848; border-color: #e04848; }
+.memo-check.is-done::after { content: "\2713"; }
+.memo-check.is-missing::after { content: "\2715"; }
+.memo-text { flex: 1; min-width: 60px; width: 100%; border: 0; background: transparent; font-size: 15px; line-height: 1.5; padding: 5px 2px; color: var(--ink); -webkit-appearance: none; appearance: none; border-radius: 6px; }
+.memo-text:focus { outline: none; background: var(--card-2); padding-left: 8px; padding-right: 8px; }
 .memo-text::placeholder { color: var(--ink-muted); opacity: .7; }
-.memo-star { width: 28px; height: 28px; flex-shrink: 0; border: 0; background: transparent; color: var(--ink-muted); font-size: 17px; cursor: pointer; border-radius: 8px; }
-.memo-star.is-on { color: #f5a623; }
-.memo-status { width: 30px; height: 28px; flex-shrink: 0; border: 1px solid var(--line-soft); background: transparent; border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--ink-muted); display: grid; place-items: center; }
-.memo-status.s-missing { color: #d23b3b; border-color: rgba(210,59,59,.4); }
-.memo-status.s-bought { color: #2faa5b; border-color: rgba(47,170,91,.4); }
-.memo-status.s- { color: var(--ink-muted); opacity: .5; }
-.memo-up, .memo-down, .memo-del { width: 28px; height: 28px; flex-shrink: 0; border: 0; background: transparent; color: var(--ink-muted); border-radius: 8px; cursor: pointer; font-size: 14px; display: grid; place-items: center; margin-top: 2px; }
-.memo-up:hover, .memo-down:hover { background: var(--card); color: var(--ink); }
-.memo-del:hover { background: rgba(210,59,59,.12); color: #d23b3b; }
-.memo-tools { display: flex; gap: 2px; align-items: center; opacity: 0; transition: opacity .15s; }
-.memo-row:hover .memo-tools { opacity: 1; }
-.memo-tools button { width: 26px; height: 26px; border: 0; background: transparent; color: var(--ink-muted); border-radius: 7px; cursor: pointer; font-size: 13px; }
-.memo-tools button:hover { background: var(--card); color: var(--ink); }
+.memo-row-del { width: 28px; height: 28px; flex-shrink: 0; border: 0; background: transparent; color: var(--ink-muted); border-radius: 8px; cursor: pointer; font-size: 14px; display: none; place-items: center; }
+.memo-row:hover .memo-row-del, .memo-row:focus-within .memo-row-del { display: grid; }
+.memo-row-del:hover { background: rgba(210,59,59,.12); color: #d23b3b; }
 .memo-detail-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line-soft); }
 .memo-add { flex: 0 0 auto; }
 .memo-stat { font-size: 12px; color: var(--ink-muted); margin-left: auto; }
 .memo-folder-select { font-size: 12px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 130px; }
+.memo-menu { position: absolute; top: 50px; right: 12px; z-index: 30; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; min-width: 168px; }
+.memo-menu[hidden] { display: none; }
+.memo-menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 11px 12px; border: 0; background: transparent; border-radius: 8px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.memo-menu button:hover { background: var(--card-2); }
+.memo-menu button.danger { color: #d23b3b; }
+.memo-menu button.danger:hover { background: rgba(210,59,59,.12); }
 .btn-memo-folders { display: none; }
 @media (max-width: 1100px) {
   .memo-layout { grid-template-columns: 1fr; height: calc(100vh - var(--topbar-h) - 120px); }
@@ -405,13 +404,11 @@ a { color: inherit; text-decoration: none; }
   .memo-layout.show-folders .memo-side { display: flex; }
   .memo-layout.show-detail .memo-list, .memo-layout.show-detail .memo-side { display: none; }
   .memo-layout.show-detail .memo-detail { display: flex; }
-  .memo-row { padding: 10px 12px; }
-  .memo-tools { opacity: 1; }
+  .memo-row { padding: 9px 10px; }
   .memo-card-del { opacity: 1; }
   .btn-memo-folders { display: inline-flex; }
 }
 @media (max-width: 760px) {
-  .memo-row.is-sub { margin-left: 22px; }
   .memo-text { font-size: 16px; }
   .memo-title { font-size: 19px; }
   .memo-card { padding: 16px; border-radius: 15px; }
@@ -956,10 +953,14 @@ a { color: inherit; text-decoration: none; }
             <div class="memo-detail-head">
               <button class="icon-btn memo-back" id="btnMemoBack" title="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
               <input class="memo-title" id="memoTitle" placeholder="给这篇起个名…" />
-              <button class="icon-btn" id="btnPinNote" title="置顶"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-2 7h-2z"/><path d="M7 10h10l-2 7H9z"/></svg></button>
-              <button class="icon-btn" id="btnLockNote" title="加密"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
-              <button class="icon-btn" id="btnExportNote" title="导出"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>
-              <button class="icon-btn" id="btnDelNote" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+              <button class="icon-btn" id="btnMemoMenu" title="更多"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+              <div class="memo-menu" id="memoMenu" hidden>
+                <button data-act="star">标星 / 取消标星</button>
+                <button data-act="pin">置顶 / 取消置顶</button>
+                <button data-act="lock">加密 / 取消加密</button>
+                <button data-act="export">导出</button>
+                <button data-act="del" class="danger">删除</button>
+              </div>
             </div>
             <div class="memo-items" id="memoItems"></div>
             <div class="memo-detail-foot">
@@ -1148,7 +1149,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.58"; // 单文件内联版：⑳修复手机端备忘录清单项文字不显示——给输入框加最小宽度和统一外观，转换旧笔记时保护文字不被前缀剥离丢空， checklist JSON 全空时自动从原内容恢复
+const APP_VERSION = "V1.0.59"; // 单文件内联版：㉑备忘录按苹果备忘录风格重做——每行只留一个小圆圈（点一下在「没勾→打勾→标找不到」三态切换），删除键仅在编辑该行时出现，置顶/标星/加密/导出/删除全收进右上角「⋯」菜单；旧笔记打开自动把「书名 + ❌/✔️ 备注」合并成一行
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1978,10 +1979,10 @@ function renderNotes() {
     const total = items.length;
     const done = items.filter(x=>x.done).length;
     const star = items.filter(x=>x.star).length;
-    const summary = total ? `✓ ${done}/${total}${star? " · ★"+star : ""}` : (n.locked ? "已加密" : (n.content ? escHtml(String(n.content).replace(/\n/g," ").slice(0,60)) : "空笔记"));
+    const summary = total ? `✓ ${done}/${total}` : (n.locked ? "已加密" : (n.content ? escHtml(String(n.content).replace(/\n/g," ").slice(0,60)) : "空笔记"));
     return `<div class="memo-card ${state.select.noteId===n.id?'is-active':''}" data-note="${n.id}">
       <div class="memo-card-main">
-        <div class="memo-card-title">${escHtml(n.title || "(无标题)")}</div>
+        <div class="memo-card-title">${n.star ? '<span class="star">★</span>' : ''}${escHtml(n.title || "(无标题)")}</div>
         <div class="memo-card-sum">${summary}</div>
         <div class="memo-card-time">${fmtDate(n.updatedAt)}${n.locked?' · 已加密':''}${n.pinned?' · 置顶':''}</div>
       </div>
@@ -2014,18 +2015,15 @@ function renderNoteEditor() {
   const empty = $("#memoDetailEmpty"), body = $("#memoDetailBody");
   if (!n && !isNew) { empty.classList.remove("hidden"); body.classList.add("hidden"); return; }
   empty.classList.add("hidden"); body.classList.remove("hidden");
+  if ($("#memoMenu")) $("#memoMenu").hidden = true;
   if (isNew) {
     if ($("#memoTitle").value !== "") $("#memoTitle").value = "";
-    $("#btnPinNote").classList.remove("is-on");
-    $("#btnLockNote").classList.remove("is-on");
     _memoItems = [];
     renderMemoItems();
     fillMemoFolderSelect("");
     return;
   }
   if ($("#memoTitle").value !== (n.title||"")) $("#memoTitle").value = n.title || "";
-  $("#btnPinNote").classList.toggle("is-on", !!n.pinned);
-  $("#btnLockNote").classList.toggle("is-on", !!n.locked);
   _memoItems = noteItems(n);
   renderMemoItems();
   fillMemoFolderSelect(n.folder);
@@ -2042,22 +2040,38 @@ function noteItemsToContent(items){ return JSON.stringify({ v:2, type:"checklist
 function noteTextToItems(text){
   const lines = String(text).split(/\r?\n/);
   const out = [];
+  let prev = null;
   for (let raw of lines){
     if (!raw.trim()) continue;
-    const originalRaw = raw;
-    const indented = /^( {2,}|\t)/.test(raw);
-    let t = raw.replace(/^\s+/, "");
-    let status = "";
-    if (/^❌/.test(t)) { status = "missing"; t = t.replace(/^❌\s*/, ""); }
-    else if (/^✔️/.test(t)) { status = "bought"; t = t.replace(/^✔️\s*/, ""); }
+    const original = raw;
+    const indent = /^( {2,}|\t)/.test(raw);
+    let s = raw.replace(/^\s+/, "");
+    let st = "";
+    if (/^❌/.test(s)) { st = "missing"; s = s.replace(/^❌\s*/, ""); }
+    else if (/^✔️/.test(s)) { st = "bought"; s = s.replace(/^✔️\s*/, ""); }
     let star = false;
-    if (/^★/.test(t)) { star = true; t = t.replace(/^★\s*/, ""); }
-    const m = t.match(/^(\d+)([．.、])\s*(.*)$/);
-    if (m) t = m[3];
-    // 保护：如果去掉状态/序号前缀后文字空了，就把原始行作为文字，避免丢内容
-    if (!t.trim()) t = originalRaw.trim();
-    const isSub = status !== "" || indented;
-    out.push({ id: uid(), text: t, done:false, star: isSub?false:star, status: isSub?status:"", indent: isSub?1:0 });
+    if (/^★/.test(s)) { star = true; s = s.replace(/^★\s*/, ""); }
+    const m = s.match(/^(\d+)([．.、])\s*(.*)$/);
+    const title = m ? m[3] : s;
+    const hasNumber = !!m;
+    // 状态行或缩进备注行：合并到上一项，不再单独占一行
+    const isStatusOrRemark = (st !== "" || indent) && !hasNumber;
+    if (isStatusOrRemark && prev) {
+      if (st === "missing") prev.status = "missing";
+      else if (st === "bought") prev.done = true;
+      const extra = s.trim();
+      if (extra && !prev.text.includes(extra)) prev.text = (prev.text ? prev.text + " · " : "") + extra;
+      continue;
+    }
+    const item = {
+      id: uid(),
+      text: (title.trim() || original.trim()),
+      done: st === "bought",
+      star: star,
+      status: st === "missing" ? "missing" : "",
+      indent: 0
+    };
+    out.push(item); prev = item;
   }
   return out;
 }
@@ -2088,8 +2102,7 @@ function memoSaveDebounced(){ clearTimeout(_memoSaveTimer); _memoSaveTimer = set
 function updateMemoStat(){
   const total = _memoItems.length;
   const done = _memoItems.filter(x=>x.done).length;
-  const star = _memoItems.filter(x=>x.star).length;
-  const stat = $("#memoStat"); if (stat) stat.textContent = `${done}/${total} 完成 · ★ ${star}`;
+  const stat = $("#memoStat"); if (stat) stat.textContent = total ? `${done}/${total} 完成` : "";
 }
 function renderMemoItems(){
   const box = $("#memoItems"); if (!box) return;
@@ -2103,7 +2116,7 @@ function renderMemoItems(){
         _memoItems = o.items.map((it, idx) => ({
           id: it.id || uid(),
           text: (it.text||"").trim() ? it.text : `第 ${idx+1} 项（文字丢失）`,
-          done: !!it.done, star: !!it.star, status: it.status || "", indent: it.indent || 0
+          done: !!it.done, star: !!it.star, status: it.status || "", indent: 0
         }));
       }
     } catch(e) {
@@ -2111,19 +2124,15 @@ function renderMemoItems(){
     }
   }
   if (!_memoItems.length) {
-    box.innerHTML = `<div class="memo-empty-hint">还没有清单项，点下面「＋ 添加一项」开始</div>`;
+    box.innerHTML = `<div class="memo-empty-hint">还没有内容，点下面「＋ 添加一项」开始</div>`;
     updateMemoStat(); return;
   }
   box.innerHTML = _memoItems.map((it, i) => {
-    const statusLabel = it.status === "missing" ? "❌" : it.status === "bought" ? "✔️" : "＋";
-    return `<div class="memo-row${it.indent===1?' is-sub':''}${it.done?' is-done':''}" data-i="${i}">
-      <button class="memo-check" data-act="check" aria-label="完成">${it.done ? "✓" : ""}</button>
+    const vis = it.status === "missing" ? "is-missing" : it.done ? "is-done" : "";
+    return `<div class="memo-row${it.done?' is-done':''}" data-i="${i}">
+      <button class="memo-check ${vis}" data-act="check" aria-label="标记"></button>
       <input class="memo-text" data-act="text" value="${escAttr(it.text)}" placeholder="写点什么…" />
-      <button class="memo-star${it.star?' is-on':''}" data-act="star" title="重要">★</button>
-      <button class="memo-status s-${it.status||''}" data-act="status" title="状态">${statusLabel}</button>
-      <button class="memo-up" data-act="up" title="上移">↑</button>
-      <button class="memo-down" data-act="down" title="下移">↓</button>
-      <button class="memo-del" data-act="del" title="删除">✕</button>
+      <button class="memo-row-del" data-act="del" title="删除" aria-label="删除">✕</button>
     </div>`;
   }).join("");
   updateMemoStat();
@@ -2133,19 +2142,22 @@ function fillMemoFolderSelect(folder){
   sel.innerHTML = state.data.folders.map(f => `<option value="${escAttr(f.id)}"${f.id===folder?' selected':''}>${escAttr(f.name)}</option>`).join("");
 }
 
-/* ========== 备忘录：事件绑定 ========== */
+/* ========== 备忘录：事件绑定（方案 A：干净版） ========== */
+function memoCycleCheck(it){
+  // 圆圈三态：没勾 → 打勾(完成/已采购) → 标找不到 → 没勾
+  const vis = it.status === "missing" ? "missing" : (it.done ? "done" : "none");
+  if (vis === "none") { it.done = true; it.status = ""; }
+  else if (vis === "done") { it.done = false; it.status = "missing"; }
+  else { it.done = false; it.status = ""; }
+}
 $("#memoItems").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-act]"); if (!btn) return;
   const row = btn.closest(".memo-row"); if (!row) return;
   const i = +row.dataset.i;
   const item = _memoItems[i]; if (!item) return;
   const act = btn.dataset.act;
-  if (act === "check") item.done = !item.done;
-  else if (act === "star") item.star = !item.star;
-  else if (act === "status") item.status = item.status === "" ? "missing" : item.status === "missing" ? "bought" : "";
-  else if (act === "up") { if (i>0){ [_memoItems[i-1],_memoItems[i]]=[_memoItems[i],_memoItems[i-1]]; } }
-  else if (act === "down") { if (i<_memoItems.length-1){ [_memoItems[i+1],_memoItems[i]]=[_memoItems[i],_memoItems[i+1]]; } }
-  else if (act === "del") { _memoItems.splice(i,1); }
+  if (act === "check") memoCycleCheck(item);
+  else if (act === "del") _memoItems.splice(i, 1);
   renderMemoItems(); memoSaveNow();
 });
 $("#memoItems").addEventListener("input", (e) => {
@@ -2167,62 +2179,52 @@ $("#memoFolderSelect").onchange = () => {
   n.folder = $("#memoFolderSelect").value; n._dirty = true;
   saveLocal(); scheduleSync(); renderNotes(); renderFolders();
 };
-$("#btnPinNote").onclick = () => {
-  const n = ensureMemoNote(); if (!n) return;
-  n.pinned = !n.pinned; n._dirty = true;
-  $("#btnPinNote").classList.toggle("is-on", !!n.pinned);
-  saveLocal(); scheduleSync(); renderNotes();
-};
 $("#btnMemoBack").onclick = () => {
   state.select.noteId = null;
   $("#memoLayout").classList.remove("show-detail");
   renderNoteEditor(); renderNotes();
 };
-$("#btnLockNote").onclick = () => {
+/* 右上角「⋯」菜单 */
+$("#btnMemoMenu").onclick = (e) => { e.stopPropagation(); const m = $("#memoMenu"); if (m) m.hidden = !m.hidden; };
+document.addEventListener("click", (e) => {
+  const m = $("#memoMenu"); if (!m || m.hidden) return;
+  if (!m.contains(e.target) && e.target !== $("#btnMemoMenu")) m.hidden = true;
+});
+$("#memoMenu").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const act = b.dataset.act;
   const n = ensureMemoNote(); if (!n) return;
-  if (!n.locked) {
-    modal({
-      title: "加密这篇笔记？",
-      desc: "加密后再次打开需要输入口令（本机口令）。内容摘要仍会显示在列表中。",
-      actions: [
+  if (act === "star") { n.star = !n.star; n._dirty = true; toast(n.star ? "已标星" : "已取消标星"); }
+  else if (act === "pin") { n.pinned = !n.pinned; n._dirty = true; toast(n.pinned ? "已置顶" : "已取消置顶"); }
+  else if (act === "lock") {
+    if (!n.locked) {
+      modal({ title:"加密这篇笔记？", desc:"加密后再次打开需要输入口令（本机口令）。", actions:[
         { label:"取消", cls:"btn" },
-        { label:"加密", cls:"btn btn-orange", onClick: () => {
-          n.locked = true; n.updatedAt = nowISO(); n._dirty = true;
-          saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已加密");
-        }}
-      ]
-    });
-  } else {
-    n.locked = false; n.updatedAt = nowISO(); n._dirty = true;
-    saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已取消加密");
+        { label:"加密", cls:"btn btn-orange", onClick: () => { n.locked = true; n.updatedAt = nowISO(); n._dirty = true; saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已加密"); } }
+      ]});
+    } else { n.locked = false; n.updatedAt = nowISO(); n._dirty = true; saveLocal(); scheduleSync(); renderNoteEditor(); renderNotes(); toast("已取消加密"); }
   }
-};
-$("#btnExportNote").onclick = () => {
-  const n = ensureMemoNote(); if (!n) return;
-  let txt = `# ${n.title||"(无标题)"}\n\n`;
-  for (const it of _memoItems) {
-    const pfx = it.indent ? "  " : "";
-    const mark = it.done ? "[x] " : "[ ] ";
-    const star = it.star ? "★ " : "";
-    const st = it.status === "missing" ? "❌ " : it.status === "bought" ? "✔️ " : "";
-    txt += `${pfx}${mark}${star}${st}${it.text}\n`;
+  else if (act === "export") {
+    let txt = `# ${n.title||"(无标题)"}\n\n`;
+    for (const it of _memoItems) {
+      const mark = it.status === "missing" ? "❌ " : it.done ? "✔️ " : "";
+      txt += `- ${mark}${it.text}\n`;
+    }
+    const blob = new Blob([txt], { type:"text/markdown;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (n.title||"note") + ".md"; a.click();
+    toast("已导出");
   }
-  const blob = new Blob([txt], { type:"text/markdown;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (n.title||"note") + ".md";
-  a.click();
-  toast("已导出");
-};
-$("#btnDelNote").onclick = () => {
-  const n = state.data.notes.find(x => x.id === state.select.noteId); if (!n) return;
-  confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(n.title||"(无标题)")}」吗？`, danger:true, onYes: () => {
-    state.data.notes = state.data.notes.filter(x => x.id !== n.id);
-    addPendingDelete("notes", n.id);
-    state.select.noteId = state.data.notes[0]?.id || null;
-    saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
-  }});
-};
+  else if (act === "del") {
+    confirmDialog({ title:"删除笔记？", desc:`要永久删除「${escHtml(n.title||"(无标题)")}」吗？`, danger:true, onYes: () => {
+      state.data.notes = state.data.notes.filter(x => x.id !== n.id);
+      addPendingDelete("notes", n.id);
+      state.select.noteId = state.data.notes[0]?.id || null;
+      saveLocal(); scheduleSync(); renderNotes(); renderNoteEditor(); renderFolders(); toast("已删除");
+    }});
+  }
+  if ($("#memoMenu")) $("#memoMenu").hidden = true;
+  saveLocal(); scheduleSync(); renderNotes();
+});
 $("#btnNewNote").onclick = () => {
   state.select.noteId = "__new__";
   renderNotes(); renderNoteEditor();
