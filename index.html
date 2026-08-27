@@ -1065,7 +1065,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.65"; // 单文件内联版：基于 V1.0.54 回退（三栏带文件夹备忘录）＋ 补待办标题/备忘录内容解密（tryUnlock 与 loadLocal 两条读数据路径此前漏解密，导致显示 __ENC__ 乱码；新增 decryptState 兜底）＋ 旧版 checklist JSON 数据自动转回可读文本（备忘录不再显示成代码）＋ 登录页/顶栏常驻显示版本号 ＋ 自动版本检查（发现线上新版自动强刷，根治一直看旧缓存）
+const APP_VERSION = "V1.0.66"; // 单文件内联版：基于 V1.0.54 回退（三栏带文件夹备忘录）＋ 补待办标题/备忘录内容解密（tryUnlock 与 loadLocal 两条读数据路径此前漏解密，导致显示 __ENC__ 乱码；新增 decryptState 兜底）＋ 旧版 checklist JSON 数据自动转回可读文本（备忘录不再显示成代码）＋ 登录页/顶栏常驻显示版本号 ＋ 自动版本检查（发现线上新版自动强刷，根治一直看旧缓存）＋ decField 递归剥壳：修复此前同步可能把已加密标题又包一层加密，导致待办仍显示 __ENC__ 代码的问题
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1211,8 +1211,26 @@ async function encField(pass, val) {
 }
 async function decField(pass, val) {
   if (typeof val !== "string" || !val.startsWith("__ENC__:")) return val;
-  try { const o = await decrypt(pass, val.slice("__ENC__:".length)); return o ? o.v : val; }
-  catch (e) { return val; }
+  let cur = val;
+  // 之前某次同步可能把已经加密的标题又加密了一层（或多层），导致只解一层还是 __ENC__: 乱码。
+  // 这里自动剥壳：只要还能继续解出新的 __ENC__: 前缀，就继续解密；解不动或明文了就停。
+  for (let i = 0; i < 5; i++) {
+    if (typeof cur !== "string" || !cur.startsWith("__ENC__:")) break;
+    const prev = cur;
+    try {
+      const o = await decrypt(pass, cur.slice("__ENC__:".length));
+      if (o && o.v != null) cur = o.v;
+    } catch (e) { break; }
+    if (cur === prev) break; // 没剥动（多半是口令不对）
+  }
+  return cur;
+}
+// 渲染兜底：若解密失败还是 __ENC__:，就别把原始代码甩给用户
+function readableText(val, fallback) {
+  if (val == null) return "";
+  const s = String(val);
+  if (s.startsWith("__ENC__:")) return fallback || "（加密内容，无法显示）";
+  return s;
 }
 
 /* ---------------------- 全局状态 ---------------------- */
@@ -1644,7 +1662,7 @@ function renderTodos() {
       <div class="pri p${t.priority||3}"></div>
       <div class="body">
         <div class="head-row">
-          <div class="title">${escHtml(t.title||"(无标题)")}</div>
+          <div class="title">${escHtml(readableText(t.title, "（待办标题加密，无法显示）") || "(无标题)")}</div>
         </div>
         ${t.desc ? `<div class="desc">${escHtml(t.desc)}</div>` : ""}
         <div class="meta">
@@ -1924,7 +1942,7 @@ function renderFolders() {
 function noteContentToText(content){
   if (!content) return "";
   if (typeof content === "string" && content.startsWith("__ENC__:")) {
-    return "(加密内容，登录后自动显示)";
+    return "（加密内容，当前口令无法解开）";
   }
   let obj = null;
   try { obj = JSON.parse(content); } catch(e){}
