@@ -1063,7 +1063,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.63"; // 单文件内联版：基于 V1.0.54 回退（三栏带文件夹备忘录）＋ 补待办标题/备忘录内容解密（tryUnlock 与 loadLocal 两条读数据路径此前漏解密，导致显示 __ENC__ 乱码；新增 decryptState 兜底）
+const APP_VERSION = "V1.0.64"; // 单文件内联版：基于 V1.0.54 回退（三栏带文件夹备忘录）＋ 补待办标题/备忘录内容解密（tryUnlock 与 loadLocal 两条读数据路径此前漏解密，导致显示 __ENC__ 乱码；新增 decryptState 兜底）＋ 旧版 checklist JSON 数据自动转回可读文本（备忘录不再显示成代码）
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1908,6 +1908,16 @@ function renderFolders() {
   };
   $("#newFolderInput").onkeydown = (e) => { if (e.key === "Enter") $("#btnAddFolder").click(); };
 }
+// 把旧版 checklist JSON 数据转回可读文本，避免备忘录显示成代码
+function noteContentToText(content){
+  if (!content) return "";
+  let obj = null;
+  try { obj = JSON.parse(content); } catch(e){}
+  if (obj && obj.type === "checklist" && Array.isArray(obj.items)) {
+    return obj.items.map(it => (it.text || "").replace(/\s+$/,"")).join("\n");
+  }
+  return String(content);
+}
 function renderNotes() {
   const q = ($("#noteSearch").value || "").trim().toLowerCase();
   let list = state.data.notes.slice();
@@ -1926,7 +1936,7 @@ function renderNotes() {
     <div class="note-card ${state.select.noteId===n.id?'is-active':''}" data-note="${n.id}">
       <div class="note-card-main">
         <div class="title">${escHtml(n.title || "(无标题)")}</div>
-        <div class="preview">${escHtml((n.content||"").replace(/\n/g," ").slice(0,120))}</div>
+        <div class="preview">${escHtml((noteContentToText(n.content)||"").replace(/\n/g," ").slice(0,120))}</div>
         <div class="time">${fmtDate(n.updatedAt)}${n.locked?'<span class="icon-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg></span>':''}</div>
       </div>
       <button class="note-del" data-del="${n.id}" title="删除">
@@ -1988,7 +1998,8 @@ function renderNoteEditor() {
   setNoteMode(isPhone ? "view" : "edit");
 
   if ($("#noteTitle").value !== (n.title||"")) $("#noteTitle").value = n.title || "";
-  if ($("#noteContent").value !== (n.content||"")) $("#noteContent").value = n.content || "";
+  const plainText = noteContentToText(n.content || "");
+  if ($("#noteContent").value !== plainText) $("#noteContent").value = plainText;
   $("#btnPinNote").classList.toggle("is-on", !!n.pinned);
   $("#btnLockNote").classList.toggle("is-on", !!n.locked);
 
@@ -2125,6 +2136,7 @@ $("#btnToggleFolders").onclick = () => {
 
 /* 极简 Markdown 渲染（标题 / 列表 / 引用 / 代码 / 粗体 / 斜体 / 行内代码 / 链接） */
 function renderMarkdown(md) {
+  md = noteContentToText(md || "");
   if (!md) return '<div style="color:var(--ink-muted)">左侧写笔记，右侧自动预览。</div>';
   let html = escHtml(md);
   // 代码块
