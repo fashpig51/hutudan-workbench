@@ -1063,7 +1063,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.55"; // 单文件内联版：⑰放宽有序项识别——原只认「行首直接 1. 」(半角点+点后空格)，老板笔记里数字项前有空格/Tab、或用全角点1．/顿号1、时整篇塌成一段、圆点缩进全失效；现改为行首允许空白、半角点/全角点/顿号都认，Node 测 7 种写法全部正确出圆点+缩进
+const APP_VERSION = "V1.0.56"; // 单文件内联版：⑱修复子说明缩进不一致——原逻辑会保留用户输入的行首空格（如“  ❌”比“✔️”多缩进），且星号后无空格（如“★5.”）不被识别为列表项导致其下子说明不缩进；现统一清掉子说明行首空白，并把星号/横线后的空格改为可选
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2119,7 +2119,7 @@ function renderMarkdown(md) {
   // 列表（保留你写的符号并缩进分组；有序数字项前面加一个圆点）
   // 放宽识别：行首允许空白；数字后允许半角点/全角点/顿号——否则老板笔记里带空格或全角符号时整篇认不出，圆点缩进全失效
   html = html.replace(/^[ \t]*(\d+)([．.、])\s*(.*)$/gm, '<div class="md-item"><span class="md-dot">•</span> $1$2 $3</div>');
-  html = html.replace(/^[ \t]*([★-])\s+(.*)$/gm, '<div class="md-item">$1 $2</div>');
+  html = html.replace(/^[ \t]*([★-])\s*(.*)$/gm, '<div class="md-item">$1 $2</div>');
   // 列表项下面的普通行（子说明）缩进——必须先做，此时 md-item 仍是独立行，子说明检测才能识别到上一行是 item
   {
     const _lines = html.split("\n");
@@ -2128,7 +2128,10 @@ function renderMarkdown(md) {
       const _struct = /^<(h\d|div|blockquote|pre)/.test(_lines[i]) || /^\s*$/.test(_lines[i]);
       if (/^<div class="md-item">/.test(_lines[i])) { _inItem = true; continue; }
       if (/^\s*$/.test(_lines[i])) { _inItem = false; continue; }
-      if (_inItem && !_struct) _lines[i] = `<div class="md-sub">${_lines[i]}</div>`;
+      if (_inItem && !_struct) {
+        // 子说明行首的空格/制表符统一清掉，缩进只由 CSS 控制，避免有的行多两格
+        _lines[i] = `<div class="md-sub">${_lines[i].replace(/^[ \t]+/, "")}</div>`;
+      }
     }
     html = _lines.join("\n");
   }
