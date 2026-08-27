@@ -4620,7 +4620,7 @@ async function tryUnlock(pass) {
 
     // 也拉 notes / pomos / folders / projects（任一失败都按"空"）
 
-    const ns = await supaLoad(TABLES.notes);         if (ns.length) state.data.notes = ns.map(x => ({ ...x, content: x.locked ? "" : (x.content || "") }));
+    const ns = await supaLoad(TABLES.notes);         if (ns.length) state.data.notes = await Promise.all(ns.map(async x => ({ ...x, content: await decField(pass, x.content || "") })));
 
     const ps = await supaLoad(TABLES.pomodoros);      if (ps.length) state.data.pomoSessions = ps;
 
