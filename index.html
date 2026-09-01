@@ -1072,7 +1072,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.67"; // 单文件内联版：①新建/编辑待办增加“创建时间”输入框，留空自动取当前时间；②待办列表新增排序切换按钮，默认按创建时间新→旧，也可切回“按截止”；③待办新增“系列”字段，列表按系列分组折叠显示
+const APP_VERSION = "V1.0.68"; // 单文件内联版：①防呆加固——自动版本检查加上限，同一个会话里最多自己刷 3 次；若网上那个版本号小档案与网页版本对不上（比如漏发小档案），网页刷 3 次就停住不再转圈，保证一定能手动输入口令进去；②沿用 V1.0.67 的待办三件事（创建时间可填 / 排序新到旧可切换 / 系列分组折叠）
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1082,11 +1082,28 @@ const TABLES = {
 };
 
 // 自动版本检查：发现线上版本号与本地不一致就强制刷新，避免一直看旧缓存页
+// ⚠️ 防呆（V1.0.68 加）：若网上那个版本号小档案没跟着一起更新（比如只发了网页、漏发小档案），
+//   网页会一直发现"对不上"→ 不停自动刷新 → 用户根本来不及输口令进来（V1.0.67 就出过这事）。
+//   所以这里同一个会话里最多自动刷 3 次就停，保证一定能手动输入；版本一致时计数清零。
 (function autoVersionCheck(){
   try {
+    const KEY = "wb2_autoreload_count";
+    const n = Number(sessionStorage.getItem(KEY) || 0);
+    if (n >= 3) {
+      console.warn("[wb2] 自动刷新已达 3 次上限，本次不再自动刷新（网页版本与版本号小档案不一致，但不影响手动使用）");
+      return;
+    }
     fetch("./version.txt?_=" + Date.now(), { cache: "no-store" })
       .then(r => r.ok ? r.text() : "")
-      .then(t => { const v = (t || "").trim(); if (v && v !== APP_VERSION) location.reload(true); })
+      .then(t => {
+        const v = (t || "").trim();
+        if (v && v !== APP_VERSION) {
+          sessionStorage.setItem(KEY, String(n + 1));
+          location.reload(true);
+        } else {
+          sessionStorage.setItem(KEY, "0");   // 版本对上了，计数清零，下次照常工作
+        }
+      })
       .catch(() => {});
   } catch (e) {}
 })();
