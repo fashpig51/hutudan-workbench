@@ -289,6 +289,12 @@ a { color: inherit; text-decoration: none; }
 .filter-chip:hover { background: var(--card-2); }
 .filter-chip.is-on:hover { background: #000; }
 
+.series-header { display:flex; align-items:center; gap: 8px; margin: 16px 4px 8px; font-size: 13px; font-weight: 700; color: var(--ink-soft); cursor: pointer; user-select: none; }
+.series-header .arrow { font-size: 12px; color: var(--ink-muted); }
+.series-header .series-name { color: var(--ink); }
+.series-header .series-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--ink-muted); background: var(--card); padding: 2px 8px; border-radius: 10px; }
+.series-badge { display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 6px; background: var(--yellow); color: var(--ink); font-size: 12px; font-weight: 600; }
+
 .todo-list { display:flex; flex-direction:column; gap: 10px; }
 .todo-item { background: var(--card); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 14px 16px; display:flex; align-items:flex-start; gap: 12px; transition: all 0.15s; }
 .todo-item:hover { border-color: var(--line); }
@@ -830,6 +836,7 @@ a { color: inherit; text-decoration: none; }
         <button class="filter-chip" data-filter="over">逾期</button>
         <button class="filter-chip is-on" data-filter="open">未完成</button>
         <button class="filter-chip" data-filter="done">📜 历史</button>
+        <button class="filter-chip" id="todoSortBtn" title="切换排序">新→旧</button>
       </div>
       <div class="todo-list" id="todoList"></div>
       <div id="todoEmpty" class="hidden"></div>
@@ -1065,7 +1072,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.66"; // 单文件内联版：基于 V1.0.54 回退（三栏带文件夹备忘录）＋ 补待办标题/备忘录内容解密（tryUnlock 与 loadLocal 两条读数据路径此前漏解密，导致显示 __ENC__ 乱码；新增 decryptState 兜底）＋ 旧版 checklist JSON 数据自动转回可读文本（备忘录不再显示成代码）＋ 登录页/顶栏常驻显示版本号 ＋ 自动版本检查（发现线上新版自动强刷，根治一直看旧缓存）＋ decField 递归剥壳：修复此前同步可能把已加密标题又包一层加密，导致待办仍显示 __ENC__ 代码的问题
+const APP_VERSION = "V1.0.67"; // 单文件内联版：①新建/编辑待办增加“创建时间”输入框，留空自动取当前时间；②待办列表新增排序切换按钮，默认按创建时间新→旧，也可切回“按截止”；③待办新增“系列”字段，列表按系列分组折叠显示
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1104,6 +1111,13 @@ const fmtDay = (t) => {
   const d = new Date(t);
   const p = n => String(n).padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+};
+const toDateTimeLocal = (t) => {
+  if (!t) return "";
+  const d = new Date(t);
+  if (isNaN(+d)) return "";
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 const dayKey = (d = new Date()) => fmtDay(d);
 const nowISO = () => new Date().toISOString();
@@ -1240,6 +1254,8 @@ const state = {
   createMode: false,
   theme: "light",
   filter: { tab: "home", todo: "open", noteFolder: "_all", noteSearch: "" },
+  todoSort: "new",                 // 待办列表排序：new=创建新→旧，due=按截止时间
+  collapsedSeries: {},             // 折叠状态：系列名 -> 是否收起
   data: {
     folders:  [ { id:"f_default", name:"默认" }, { id:"f_inbox",  name:"收件箱" } ],
     notes:    [],
@@ -1293,6 +1309,8 @@ function saveLocal() {
     pomoProjects: state.data.pomoProjects,
     pomoSessions: state.data.pomoSessions,
     pendingDeletes: state.pendingDeletes,
+    todoSort: state.todoSort,
+    collapsedSeries: state.collapsedSeries,
     updatedAt: nowISO(),
   };
   try { localStorage.setItem(k, JSON.stringify(payload)); } catch(e) {}
@@ -1310,6 +1328,8 @@ function loadLocal() {
     state.data.pomoProjects = p.pomoProjects || [];
     state.data.pomoSessions = p.pomoSessions || [];
     state.pendingDeletes = p.pendingDeletes || { todos:[], notes:[], pomos:[], folders:[], projects:[] };
+    state.todoSort = p.todoSort || "new";
+    state.collapsedSeries = p.collapsedSeries || {};
     return true;
   } catch(e) { return false; }
 }
@@ -1641,9 +1661,12 @@ function renderTodos() {
   if (q) list = list.filter(t => (t.title||"").toLowerCase().includes(q) || (t.desc||"").toLowerCase().includes(q));
   list = todoApplyFilter(list);
 
-  // 排序：置顶 > 优先级 > 截止
+  // 排序：置顶始终最前；其余按当前排序模式
   list.sort((a, b) => {
     if ((b.pinned?1:0) !== (a.pinned?1:0)) return (b.pinned?1:0) - (a.pinned?1:0);
+    if (state.todoSort === "new") {
+      return (b.createdAt || "").localeCompare(a.createdAt || "");
+    }
     if ((b.priority||3) !== (a.priority||3)) return (b.priority||3) - (a.priority||3);
     return (a.dueAt || "9999").localeCompare(b.dueAt || "9999");
   });
@@ -1670,6 +1693,7 @@ function renderTodos() {
           ${t.createdAt ? `<span>创建 ${fmtDate(t.createdAt)}</span>` : ""}
           ${t.done && t.completedAt ? `<span>完成 ${fmtDate(t.completedAt)}</span>` : ""}
           ${recurHtml}
+          ${t.series ? `<span class="series-badge">${escHtml(t.series)}</span>` : ""}
           ${tagsHtml}
         </div>
       </div>
@@ -1696,9 +1720,30 @@ function renderTodos() {
       html += list.filter(t => t.pinned).map(renderOne).join("");
     }
     if (others.length) {
-      html += `<div class="todo-list">${others.map(renderOne).join("")}</div>`;
-    } else {
-      html = list.filter(t => t.pinned).map(renderOne).join("");
+      // 按系列分组（没有系列的归到“未分类”）
+      const groups = {};
+      for (const t of others) {
+        const s = t.series || "未分类";
+        groups[s] = groups[s] || [];
+        groups[s].push(t);
+      }
+      const names = Object.keys(groups).sort();
+      if (names.includes("未分类")) {
+        names.splice(names.indexOf("未分类"), 1);
+        names.push("未分类");
+      }
+      for (const s of names) {
+        const collapsed = !!state.collapsedSeries[s];
+        html += `<div class="series-header ${collapsed?"is-collapsed":""}" data-series="${escHtml(s)}">
+          <span class="arrow">${collapsed?"▶":"▼"}</span>
+          <span class="series-name">${escHtml(s)}</span>
+          <span class="series-count">${groups[s].length}</span>
+        </div>`;
+        if (!collapsed) html += `<div class="todo-list">${groups[s].map(renderOne).join("")}</div>`;
+      }
+    } else if (!pinnedIds.length) {
+      // 兜底：理论上不会走到这里，因为前面已判空
+      html = "";
     }
     listEl.innerHTML = html;
 
@@ -1721,13 +1766,20 @@ function renderTodos() {
         saveLocal(); scheduleSync(); render(); toast("已删除");
       }});
     });
+    listEl.querySelectorAll(".series-header").forEach(el => el.onclick = () => {
+      const s = el.dataset.series;
+      state.collapsedSeries[s] = !state.collapsedSeries[s];
+      saveLocal(); renderTodos();
+    });
   }
 
   const open = state.data.todos.filter(t => !t.done).length;
   const done = state.data.todos.length - open;
   $("#todosSub").textContent = `${state.data.todos.length} 项 · ${done} 已完成`;
 
-  $$(".filter-chip").forEach(c => c.classList.toggle("is-on", c.dataset.filter === state.filter.todo));
+  $$(".filter-chip[data-filter]").forEach(c => c.classList.toggle("is-on", c.dataset.filter === state.filter.todo));
+  const sortBtn = $("#todoSortBtn");
+  if (sortBtn) sortBtn.textContent = state.todoSort === "new" ? "新→旧" : "按截止";
 }
 
 /* ---------------------- 待办：抽屉 ---------------------- */
@@ -1746,6 +1798,7 @@ function openTodoDrawer(t) {
     tags: [],
     recurring: "none",
     pinned: false,
+    series: "",
   };
   $("#drawerTitle").textContent = t ? "编辑待办" : "新建待办";
   $("#drawerBody").innerHTML = `
@@ -1757,6 +1810,15 @@ function openTodoDrawer(t) {
       <div class="td-block">
         <div class="td-cap">截止时间</div>
         <input id="fDue" class="td-field" type="datetime-local" value="${editingTodo.dueAt? fmtDate(editingTodo.dueAt).replace(' ','T').slice(0,16):""}" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">创建时间</div>
+        <input id="fCreated" class="td-field" type="datetime-local" value="${toDateTimeLocal(editingTodo.createdAt)}" placeholder="留空则使用当前时间" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">系列</div>
+        <input id="fSeries" class="td-field" list="fSeriesList" placeholder="输入新系列或选择已有系列" value="${escHtml(editingTodo.series||"")}" />
+        <datalist id="fSeriesList">${Array.from(new Set(state.data.todos.map(t => t.series).filter(Boolean))).map(s => `<option value="${escHtml(s)}">`).join("")}</datalist>
       </div>
       <div class="td-block">
         <div class="td-cap">优先级</div>
@@ -1797,9 +1859,11 @@ function openTodoDrawer(t) {
     t.desc = $("#fDesc").value;
     const due = $("#fDue").value;
     t.dueAt = due ? new Date(due).toISOString() : null;
+    const created = $("#fCreated").value;
+    t.createdAt = created ? new Date(created).toISOString() : nowISO();
+    t.series = ($("#fSeries").value || "").trim();
     t.priority = Number($(".prio-opt.is-active").dataset.prio || 3);
     t.recurring = $(".recur-opt.is-active").dataset.recur;
-    if (!t.createdAt) t.createdAt = nowISO();
     if (!t.updatedAt) t.updatedAt = t.createdAt;
     t.updatedAt = nowISO();
     if (t.done) t.completedAt = t.completedAt || nowISO();
@@ -1874,7 +1938,16 @@ $("#drawerMask").onclick = closeDrawer;
 $("#drawerClose").onclick = closeDrawer;
 $("#btnNewTodo").onclick = () => openTodoDrawer();
 $("#todoSearch").oninput = () => renderTodos();
-$$(".filter-chip").forEach(c => c.onclick = () => { state.filter.todo = c.dataset.filter; renderTodos(); });
+$$(".filter-chip[data-filter]").forEach(c => c.onclick = () => { state.filter.todo = c.dataset.filter; renderTodos(); });
+const sortBtnInit = $("#todoSortBtn");
+if (sortBtnInit) {
+  sortBtnInit.textContent = state.todoSort === "new" ? "新→旧" : "按截止";
+  sortBtnInit.onclick = () => {
+    state.todoSort = state.todoSort === "new" ? "due" : "new";
+    sortBtnInit.textContent = state.todoSort === "new" ? "新→旧" : "按截止";
+    renderTodos();
+  };
+}
 
 /* ---------------------- 渲染：备忘录 ---------------------- */
 function renderFolders() {
