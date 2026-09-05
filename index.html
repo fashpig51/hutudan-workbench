@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#F5F1E8" />
 <title>Workbench · 糊涂蛋工作台</title>
 <script src="assets/js/config.js?v=V1.0.32"></script>
@@ -703,9 +703,10 @@ a { color: inherit; text-decoration: none; }
 .pk-field {
   height: 40px; padding: 0 12px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--card);
-  color: var(--ink); font-size: 14px; font-family: inherit;
+  color: var(--ink); font-size: 16px; font-family: inherit;
 }
 .pk-field:focus { outline: none; border-color: var(--ink); }
+.pk-field::placeholder { font-size: 14px; }
 .pk-company { width: 120px; cursor: pointer; }
 .pk-code { flex: 1 1 160px; min-width: 140px; font-size: 17px; font-weight: 700; letter-spacing: .04em; }
 .pk-station { flex: 1 1 160px; min-width: 140px; }
@@ -716,8 +717,9 @@ a { color: inherit; text-decoration: none; }
   width: 100%; min-height: 92px; padding: 12px;
   border-radius: 12px; border: 1px solid var(--line);
   background: var(--card); color: var(--ink);
-  font-size: 14px; font-family: inherit; line-height: 1.6; resize: vertical;
+  font-size: 16px; font-family: inherit; line-height: 1.6; resize: vertical;
 }
+.pk-paste textarea::placeholder { font-size: 14px; }
 .pk-paste textarea:focus { outline: none; border-color: var(--ink); }
 .pk-paste-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
 
@@ -1006,9 +1008,11 @@ a { color: inherit; text-decoration: none; }
           <div class="view-sub" id="pickupsSub">0 个待取 · 0 个已取</div>
         </div>
         <button class="btn" id="btnPkPasteToggle">粘贴识别</button>
+        <button class="btn" id="btnPkImg" title="截图识别">截图识别</button>
+        <input type="file" id="pkImgInput" accept="image/*" style="display:none" />
       </div>
 
-      <!-- 粘贴整段文字自动识别（短信 / 淘宝物流 / 菜鸟页面都行） -->
+      <!-- 粘贴整段文字自动识别（短信 / 淘宝物流 / 菜鸟页面都行）；也支持直接粘贴截图 -->
       <div class="pk-paste" id="pkPasteBox" style="display:none">
         <textarea id="pkPasteText" placeholder="把短信、淘宝物流、菜鸟页面里的整段文字粘进来，自动认出快递公司和取件码"></textarea>
         <div class="pk-paste-actions">
@@ -1172,7 +1176,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.69"; // 单文件内联版：新增「取件码管家」——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
+const APP_VERSION = "V1.0.70"; // 单文件内联版：取件码管家优化——①修复苹果端输入框自动放大；②新增截图识别（选图/粘贴图片自动读字）；③支持修改已添加的取件信息。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2079,6 +2083,54 @@ function openTodoDrawer(t) {
   }
   renderTags();
 }
+function openPickupEdit(p) {
+  $("#drawerTitle").textContent = "修改取件信息";
+  $("#drawerBody").innerHTML = `
+    <div class="pk-edit">
+      <div class="td-block">
+        <div class="td-cap">快递公司</div>
+        <select id="pkEditCompany" class="td-field">${PK_COMPANIES.map(c => `<option value="${escHtml(c)}" ${(p.company || "其他") === c ? "selected" : ""}>${escHtml(c)}</option>`).join("")}</select>
+      </div>
+      <div class="td-block">
+        <div class="td-cap">取件码</div>
+        <input id="pkEditCode" class="td-field" type="text" inputmode="numeric" autocomplete="off" value="${escHtml(readableText(p.code, ""))}" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">驿站 / 地址</div>
+        <input id="pkEditStation" class="td-field" type="text" autocomplete="off" value="${escHtml(p.station || "")}" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">货架号</div>
+        <input id="pkEditShelf" class="td-field" type="text" autocomplete="off" value="${escHtml(p.shelf || "")}" />
+      </div>
+      <div class="td-block">
+        <div class="td-cap">备注</div>
+        <textarea id="pkEditNote" class="td-desc" placeholder="还有什么要记的">${escHtml(readableText(p.note, ""))}</textarea>
+      </div>
+    </div>
+  `;
+  $("#drawerFoot").innerHTML = `
+    <button class="btn" id="drawerCancel">取消</button>
+    <button class="btn btn-primary" id="drawerSave">保存</button>
+  `;
+  $("#drawerMask").classList.add("is-open");
+  $("#drawer").classList.add("is-open");
+
+  $("#drawerCancel").onclick = closeDrawer;
+  $("#drawerSave").onclick = () => {
+    const code = $("#pkEditCode").value.trim();
+    if (!code) { toast("取件码不能为空", "is-warn"); return; }
+    p.company = $("#pkEditCompany").value || "其他";
+    p.code = code;
+    p.station = $("#pkEditStation").value.trim();
+    p.shelf = $("#pkEditShelf").value.trim();
+    p.note = $("#pkEditNote").value.trim();
+    p._dirty = true;
+    saveLocal(); scheduleSync(); render();
+    closeDrawer();
+    toast("已保存");
+  };
+}
 function closeDrawer() {
   $("#drawerMask").classList.remove("is-open");
   $("#drawer").classList.remove("is-open");
@@ -2728,6 +2780,40 @@ function parsePickupText(text) {
   return out;
 }
 
+// 动态加载外部脚本（截图识别用的文字识别库），只加载一次
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('加载识别引擎失败'));
+    document.head.appendChild(s);
+  });
+}
+
+// 截图识别：把图片交给 Tesseract.js 读文字，再交给 parsePickupText 拆取件信息
+async function ocrImage(file) {
+  const blobUrl = URL.createObjectURL(file);
+  try {
+    toast("正在识别图片里的文字，请稍等…");
+    await loadScript("https://unpkg.com/tesseract.js@5/dist/tesseract.min.js");
+    const { createWorker } = window.Tesseract;
+    const worker = await createWorker("chi_sim+eng");
+    const ret = await worker.recognize(blobUrl);
+    await worker.terminate();
+    URL.revokeObjectURL(blobUrl);
+    const text = ret.data && ret.data.text || "";
+    if (!text.trim()) { toast("图片里没读到文字", "is-warn"); return; }
+    const r = parsePickupText(text);
+    if (!r.code) { toast("没从图里认出取件码，请手动填一下", "is-warn"); return; }
+    if (addPickup(r)) toast(`已添加：${r.company || "快递"} ${r.code}`, "is-good");
+  } catch (err) {
+    URL.revokeObjectURL(blobUrl);
+    toast("识别失败：" + (err && err.message || "未知错误"), "is-warn");
+  }
+}
+
 function renderPickups() {
   const all = state.data.pickups || [];
   const byNew = (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
@@ -2761,6 +2847,7 @@ function renderPickups() {
         ${isTaken
           ? `<button class="icon-btn" data-pkun="${p.id}" title="撤销已取">↩</button>`
           : `<button class="btn btn-sm btn-primary" data-pktake="${p.id}" title="标记已取">已取</button>`}
+        <button class="icon-btn" data-pkedit="${p.id}" title="修改">✎</button>
         <button class="icon-btn" data-pkdel="${p.id}" title="删除">🗑</button>
       </div>
     </div>`;
@@ -2788,6 +2875,10 @@ function renderPickups() {
     const p = (state.data.pickups || []).find(x => x.id === el.dataset.pkun); if (!p) return;
     p.takenAt = null; p._dirty = true;
     saveLocal(); scheduleSync(); render(); toast("已恢复为待取");
+  });
+  host.querySelectorAll("[data-pkedit]").forEach(el => el.onclick = () => {
+    const p = (state.data.pickups || []).find(x => x.id === el.dataset.pkedit); if (!p) return;
+    openPickupEdit(p);
   });
   host.querySelectorAll("[data-pkdel]").forEach(el => el.onclick = () => {
     const p = (state.data.pickups || []).find(x => x.id === el.dataset.pkdel); if (!p) return;
@@ -2871,6 +2962,24 @@ function initPickups() {
     }
   };
 
+  // 截图识别：点按钮选图，或者直接往粘贴框里粘贴图片
+  $("#btnPkImg").onclick = () => $("#pkImgInput").click();
+  $("#pkImgInput").onchange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) ocrImage(f);
+    e.target.value = "";
+  };
+  $("#pkPasteText").addEventListener("paste", (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        const f = it.getAsFile();
+        if (f) ocrImage(f);
+        return;
+      }
+    }
+  });
 }
 
 // 进入「取件码」页时：把上次选的快递公司/驿站带出来，并自动把光标放到取件码框里（手动录入才够快）
