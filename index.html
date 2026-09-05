@@ -696,6 +696,72 @@ a { color: inherit; text-decoration: none; }
   .pomodoro-big .timer-svg { width: 180px; height: 180px; }
   .pomodoro-big .timer-text { font-size: 48px; }
 }
+
+/* ---------------------- 取件码管家 ---------------------- */
+/* 快速添加条：一行排开，手动录入为主力，尽量少点几下 */
+.pk-add { display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap: wrap; }
+.pk-field {
+  height: 40px; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--ink); font-size: 14px; font-family: inherit;
+}
+.pk-field:focus { outline: none; border-color: var(--ink); }
+.pk-company { width: 120px; cursor: pointer; }
+.pk-code { flex: 1 1 160px; min-width: 140px; font-size: 17px; font-weight: 700; letter-spacing: .04em; }
+.pk-station { flex: 1 1 160px; min-width: 140px; }
+
+/* 粘贴识别区 */
+.pk-paste { margin-bottom: 16px; }
+.pk-paste textarea {
+  width: 100%; min-height: 92px; padding: 12px;
+  border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink);
+  font-size: 14px; font-family: inherit; line-height: 1.6; resize: vertical;
+}
+.pk-paste textarea:focus { outline: none; border-color: var(--ink); }
+.pk-paste-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+
+/* 列表 */
+.pk-list { display:flex; flex-direction:column; gap: 20px; }
+.pk-group { display:flex; flex-direction:column; gap: 10px; }
+.pk-item {
+  display:flex; align-items:center; gap: 14px;
+  padding: 14px 16px; border-radius: var(--radius);
+  background: var(--card); border: 1px solid var(--line-soft);
+}
+.pk-item.is-taken { opacity: .5; }
+.pk-item.is-taken .pk-code { text-decoration: line-through; }
+.pk-item-main { flex: 1; min-width: 0; }
+/* 取件码大字号：到了驿站一眼看清，不用眯眼 */
+.pk-code {
+  font-size: 26px; font-weight: 800; letter-spacing: .02em;
+  line-height: 1.2; font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+.pk-meta { font-size: 12px; color: var(--ink-muted); margin-top: 4px; }
+.pk-company {
+  display:inline-block; padding: 1px 7px; border-radius: 6px;
+  background: var(--card-2); color: var(--ink-soft); font-weight: 600; margin-right: 2px;
+}
+.pk-note { font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
+.pk-actions { display:flex; align-items:center; gap: 6px; flex-shrink: 0; }
+.pk-taken-toggle {
+  display:flex; align-items:center; gap: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--ink-muted);
+  padding: 6px 0; user-select: none;
+}
+.pk-taken-toggle:hover { color: var(--ink); }
+.pk-caret { font-size: 11px; }
+
+@media (max-width: 760px) {
+  .pk-add { gap: 6px; }
+  .pk-company { flex: 1 1 100%; width: 100%; }
+  .pk-code { flex: 1 1 100%; min-width: 0; }
+  .pk-station { flex: 1 1 100%; min-width: 0; }
+  .pk-add .btn { width: 100%; justify-content: center; }
+  .pk-code { font-size: 24px; }
+  .pk-item { padding: 12px 14px; }
+}
 </style>
 </head>
 <body>
@@ -740,6 +806,10 @@ a { color: inherit; text-decoration: none; }
     </button>
     <button class="nav-btn" data-go="pomodoro" title="番茄钟">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+    </button>
+    <button class="nav-btn" data-go="pickups" title="取件码">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+      <span class="badge" id="pkBadge" style="display:none">0</span>
     </button>
     <div class="nav-spacer"></div>
     <button class="nav-btn" data-go="settings" title="设置">
@@ -928,6 +998,36 @@ a { color: inherit; text-decoration: none; }
       </div>
     </section>
 
+    <!-- 取件码管家 -->
+    <section class="view" id="view-pickups">
+      <div class="view-head">
+        <div>
+          <div class="view-title">取件码</div>
+          <div class="view-sub" id="pickupsSub">0 个待取 · 0 个已取</div>
+        </div>
+        <button class="btn" id="btnPkPasteToggle">粘贴识别</button>
+      </div>
+
+      <!-- 粘贴整段文字自动识别（短信 / 淘宝物流 / 菜鸟页面都行） -->
+      <div class="pk-paste" id="pkPasteBox" style="display:none">
+        <textarea id="pkPasteText" placeholder="把短信、淘宝物流、菜鸟页面里的整段文字粘进来，自动认出快递公司和取件码"></textarea>
+        <div class="pk-paste-actions">
+          <button class="btn" id="pkPasteCancel">取消</button>
+          <button class="btn btn-primary" id="pkPasteGo">识别并添加</button>
+        </div>
+      </div>
+
+      <!-- 快速添加（手动为主力：打开就聚焦、手机弹数字键盘、回车即存） -->
+      <div class="pk-add">
+        <select id="pkCompany" class="pk-field pk-company"></select>
+        <input id="pkCode" class="pk-field pk-code" type="text" inputmode="numeric" autocomplete="off" placeholder="取件码" />
+        <input id="pkStation" class="pk-field pk-station" type="text" autocomplete="off" placeholder="驿站（选填）" />
+        <button class="btn btn-primary" id="pkAddBtn">添加</button>
+      </div>
+
+      <div id="pkList" class="pk-list"></div>
+    </section>
+
     <!-- 设置 -->
     <section class="view" id="view-settings">
       <div class="view-head">
@@ -1072,13 +1172,14 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.68"; // 单文件内联版：①防呆加固——自动版本检查加上限，同一个会话里最多自己刷 3 次；若网上那个版本号小档案与网页版本对不上（比如漏发小档案），网页刷 3 次就停住不再转圈，保证一定能手动输入口令进去；②沿用 V1.0.67 的待办三件事（创建时间可填 / 排序新到旧可切换 / 系列分组折叠）
+const APP_VERSION = "V1.0.69"; // 单文件内联版：新增「取件码管家」——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
   todos:     "wb2_todos",
   notes:     "wb2_notes",
   pomodoros: "wb2_pomodoros",
+  pickups:   "wb2_pickups",
 };
 
 // 自动版本检查：发现线上版本号与本地不一致就强制刷新，避免一直看旧缓存页
@@ -1273,19 +1374,21 @@ const state = {
   filter: { tab: "home", todo: "open", noteFolder: "_all", noteSearch: "" },
   todoSort: "new",                 // 待办列表排序：new=创建新→旧，due=按截止时间
   collapsedSeries: {},             // 折叠状态：系列名 -> 是否收起
+  pkLast: { company: "", station: "" },  // 取件码管家：记住上次填的快递公司/驿站，下次自动带出，少打字
   data: {
     folders:  [ { id:"f_default", name:"默认" }, { id:"f_inbox",  name:"收件箱" } ],
     notes:    [],
     todos:    [],
     pomoProjects: [],
     pomoSessions: [],
+    pickups:  [],
   },
   select: { noteId: null, runningProjectId: null },
   timer:  { runId: null, endsAt: 0, mode: "focus", leftSec: 25*60, tickId: null },
   syncing: false,
   cloudOk: true,        // 联网标记：supaFetch 失败会自动置 false（UI 切到离线模式）
   notifiedOffline: false,
-  pendingDeletes: { todos:[], notes:[], pomos:[], folders:[], projects:[] },  // 本地已删、待下次 push 时从云端也删的 id
+  pendingDeletes: { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] },  // 本地已删、待下次 push 时从云端也删的 id
 };
 
 const LS_KEY = (k) => "wb2_" + state.userId + "_" + k;
@@ -1325,9 +1428,11 @@ function saveLocal() {
     todos: state.data.todos,
     pomoProjects: state.data.pomoProjects,
     pomoSessions: state.data.pomoSessions,
+    pickups: state.data.pickups,
     pendingDeletes: state.pendingDeletes,
     todoSort: state.todoSort,
     collapsedSeries: state.collapsedSeries,
+    pkLast: state.pkLast,
     updatedAt: nowISO(),
   };
   try { localStorage.setItem(k, JSON.stringify(payload)); } catch(e) {}
@@ -1344,9 +1449,12 @@ function loadLocal() {
     state.data.todos    = p.todos    || [];
     state.data.pomoProjects = p.pomoProjects || [];
     state.data.pomoSessions = p.pomoSessions || [];
-    state.pendingDeletes = p.pendingDeletes || { todos:[], notes:[], pomos:[], folders:[], projects:[] };
+    state.data.pickups = p.pickups || [];
+    state.pendingDeletes = p.pendingDeletes || { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
+    if (!state.pendingDeletes.pickups) state.pendingDeletes.pickups = [];
     state.todoSort = p.todoSort || "new";
     state.collapsedSeries = p.collapsedSeries || {};
+    state.pkLast = p.pkLast || { company: "", station: "" };
     return true;
   } catch(e) { return false; }
 }
@@ -1366,6 +1474,11 @@ async function decryptState() {
       n.content = await decField(state.pass, n.content);
       changed = true;
     }
+  }
+  // 取件码管家的取件码与备注也是加密存的，这里一并还原
+  for (const p of (state.data.pickups || [])) {
+    if (p.code && String(p.code).startsWith("__ENC__:")) { p.code = await decField(state.pass, p.code); changed = true; }
+    if (p.note && String(p.note).startsWith("__ENC__:")) { p.note = await decField(state.pass, p.note); changed = true; }
   }
   if (changed) saveLocal();
 }
@@ -1436,9 +1549,10 @@ async function supaLoad(table) {
   return res.map(({user_id, ...x}) => x);
 }
 // 删除传播：本地删了某条，记下 id，等下次 push 时从云端也删（不再整批删全表）
-const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects" };
+const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects", pickups: TABLES.pickups };
 function addPendingDelete(kind, id) {
-  if (!state.pendingDeletes) state.pendingDeletes = { todos:[], notes:[], pomos:[], folders:[], projects:[] };
+  if (!state.pendingDeletes) state.pendingDeletes = { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
+  if (!state.pendingDeletes[kind]) state.pendingDeletes[kind] = [];
   if (!state.pendingDeletes[kind].includes(id)) state.pendingDeletes[kind].push(id);
 }
 async function flushPendingDeletes(kind) {
@@ -1491,10 +1605,18 @@ async function syncAll() {
     await flushPendingDeletes("folders");
     await supaPush("wb2_pomo_projects", state.data.pomoProjects.map(p => ({...p, user_id: state.userId})));
     await flushPendingDeletes("projects");
+    // 取件码：取件码与备注上云前加密（驿站名不加密，方便显示和搜索）
+    await supaPush(TABLES.pickups, await Promise.all((state.data.pickups||[]).map(async p => ({
+      ...p, user_id: state.userId,
+      code: await encField(state.pass, p.code),
+      note: p.note ? await encField(state.pass, p.note) : p.note,
+    }))));
+    await flushPendingDeletes("pickups");
     // 全部推送成功：清掉本地「未上传」标记（下次纯拉取不会误保本地旧版）
     state.data.todos.forEach(t => delete t._dirty);
     state.data.notes.forEach(n => delete n._dirty);
     state.data.pomoSessions.forEach(p => delete p._dirty);
+    (state.data.pickups || []).forEach(p => delete p._dirty);
     _onSyncOk();
     setSyncUI("ok");
   } catch (e) {
@@ -1508,12 +1630,13 @@ async function syncLoad() {
   if (!state.userId) return;
   setSyncUI("syncing", "拉取中…");
   try {
-    const [ts, ns, ps, fs, pp] = await Promise.all([
+    const [ts, ns, ps, fs, pp, pk] = await Promise.all([
       supaLoad(TABLES.todos),
       supaLoad(TABLES.notes),
       supaLoad(TABLES.pomodoros),
       supaLoad("wb2_folders_v1"),
       supaLoad("wb2_pomo_projects"),
+      supaLoad(TABLES.pickups),
     ]);
     // 合并（本地有 _dirty 标记则保本地改动，否则用云端；防覆盖 + 防删了又复活），再对敏感字段解密
     state.data.todos = await Promise.all(
@@ -1524,6 +1647,14 @@ async function syncLoad() {
     state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
     if (fs.length) state.data.folders = fs;
     if (pp.length) state.data.pomoProjects = pp;
+    // 取件码合并后解密（取件码/备注是密文，驿站名等原样）
+    state.data.pickups = await Promise.all(
+      mergeById(state.data.pickups || [], pk).map(async p => ({
+        ...p,
+        code: await decField(state.pass, p.code),
+        note: p.note ? await decField(state.pass, p.note) : "",
+      }))
+    );
     saveLocal();
     _onSyncOk();
     setSyncUI("ok");
@@ -1564,6 +1695,7 @@ function go(tab, opts) {
   if (tab === "notes" && state.select.noteId && state.select.noteId !== "__new__" && window.innerWidth <= 1100) {
     $("#notesLayout").classList.add("show-editor");
   }
+  if (tab === "pickups") fillPickupLast();
   if (opts && opts.scrollTop != null) { $(".main").scrollTop = opts.scrollTop; }
 }
 $$(".nav-btn").forEach(b => b.onclick = () => go(b.dataset.go));
@@ -2558,6 +2690,198 @@ function renderSettings() {
   const _vl = $("#curVerLogin"); if (_vl) _vl.textContent = "版本 " + APP_VERSION;
 }
 
+/* ---------------------- 取件码管家 ---------------------- */
+// 常见快递公司 / 驿站（下拉用，也用于粘贴识别时认快递公司）
+const PK_COMPANIES = ["中通","圆通","韵达","申通","极兔","顺丰","京东","EMS","邮政","德邦","菜鸟驿站","兔喜","妈妈驿站","快宝","丰巢","近邻宝","熊猫快收","其他"];
+
+// 从一整段文字里抠出取件信息（短信 / 淘宝物流 / 菜鸟页面都能认）
+function parsePickupText(text) {
+  const t = String(text || "");
+  const out = { company: "", code: "", station: "", shelf: "", note: "" };
+  if (!t.trim()) return out;
+  // 1) 快递公司：按名字匹配（长的优先，避免"菜鸟驿站"被先配成别的）
+  const sorted = PK_COMPANIES.slice().sort((a, b) => b.length - a.length);
+  for (const c of sorted) { if (c !== "其他" && t.includes(c)) { out.company = c; break; } }
+  // 2) 取件码：优先找"取件码/取货码/提货码"后面跟的编号
+  let m = t.match(/(?:取件码|取货码|提货码|取件号|货码|取件密码|验证码)[^0-9A-Za-z]{0,8}([0-9A-Za-z][0-9A-Za-z\-]{2,19})/);
+  if (!m) {
+    // 退而求其次：找"码"字后面紧跟的数字
+    m = t.match(/码[^0-9A-Za-z]{0,4}([0-9]{4,10})/);
+  }
+  if (!m) {
+    // 再退：整段里唯一比较像码的 6 位左右数字
+    const all = t.match(/(?<!\d)\d{5,8}(?!\d)/g) || [];
+    if (all.length) m = [null, all[all.length - 1]];
+  }
+  if (m && m[1]) out.code = m[1];
+  // 3) 货架号
+  const s = t.match(/(?:货架号|货架|架位|位置)[^0-9A-Za-z]{0,4}([0-9A-Za-z][0-9A-Za-z\-]{0,9})/);
+  if (s) out.shelf = s[1];
+  // 4) 驿站：抓含"驿站/店/柜/点"的一小段
+  const st = t.match(/([^\s，,。；;（(]{0,12}(?:驿站|代收点|快递柜|服务点|门店)[^\s，,。；;）)]{0,10})/);
+  if (st) out.station = st[1];
+  // 5) 地址也顺手抓一下（没抓到驿站名时兜底当备注）
+  if (!out.station) {
+    const ad = t.match(/([^\s，,。；;]{4,20}(?:路|街|大道|小区|苑|园|号)[^\s，,。；;]{0,15})/);
+    if (ad) out.station = ad[1];
+  }
+  return out;
+}
+
+function renderPickups() {
+  const all = state.data.pickups || [];
+  const byNew = (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+  const pending = all.filter(p => !p.takenAt).sort(byNew);
+  const taken   = all.filter(p =>  p.takenAt).sort((a, b) => String(b.takenAt || "").localeCompare(String(a.takenAt || "")));
+
+  const sub = $("#pickupsSub");
+  if (sub) sub.textContent = `${pending.length} 个待取 · ${taken.length} 个已取`;
+  // 导航角标：有几个待取就显示几（不占首页位置）
+  const badge = $("#pkBadge");
+  if (badge) { badge.textContent = String(pending.length); badge.style.display = pending.length ? "grid" : "none"; }
+
+  const host = $("#pkList");
+  if (!host) return;
+  if (!all.length) {
+    host.innerHTML = `<div class="empty"><div class="empty-title">还没有取件码</div><div class="empty-sub">在上面填取件码添加，或者点"粘贴识别"把整段短信粘进来</div></div>`;
+    return;
+  }
+
+  const oneRow = (p, isTaken) => {
+    const code = readableText(p.code, "（无法显示）");
+    const when = p.createdAt ? fmtDate(p.createdAt) : "";
+    const meta = [p.station, p.shelf ? ("货架 " + p.shelf) : "", when].filter(Boolean).join(" · ");
+    return `<div class="pk-item ${isTaken ? "is-taken" : ""}">
+      <div class="pk-item-main">
+        <div class="pk-code">${escHtml(code)}</div>
+        <div class="pk-meta"><span class="pk-company">${escHtml(p.company || "快递")}</span>${meta ? ` · ${escHtml(meta)}` : ""}</div>
+        ${p.note ? `<div class="pk-note">${escHtml(readableText(p.note, "（无法显示）"))}</div>` : ""}
+      </div>
+      <div class="pk-actions">
+        ${isTaken
+          ? `<button class="icon-btn" data-pkun="${p.id}" title="撤销已取">↩</button>`
+          : `<button class="btn btn-sm btn-primary" data-pktake="${p.id}" title="标记已取">已取</button>`}
+        <button class="icon-btn" data-pkdel="${p.id}" title="删除">🗑</button>
+      </div>
+    </div>`;
+  };
+
+  let html = "";
+  if (pending.length) {
+    html += `<div class="section-title"><h3>待取（${pending.length}）</h3></div><div class="pk-group">${pending.map(p => oneRow(p, false)).join("")}</div>`;
+  } else {
+    html += `<div class="empty"><div class="empty-title">都取完啦</div><div class="empty-sub">下面可以翻已取的记录</div></div>`;
+  }
+  if (taken.length) {
+    html += `<div class="pk-taken-toggle" id="pkTakenToggle">已取（${taken.length}） <span class="pk-caret">▾</span></div>
+             <div class="pk-group" id="pkTakenGroup" style="display:none">${taken.map(p => oneRow(p, true)).join("")}</div>`;
+  }
+  host.innerHTML = html;
+
+  // 事件绑定
+  host.querySelectorAll("[data-pktake]").forEach(el => el.onclick = () => {
+    const p = (state.data.pickups || []).find(x => x.id === el.dataset.pktake); if (!p) return;
+    p.takenAt = nowISO(); p._dirty = true;
+    saveLocal(); scheduleSync(); render(); toast("已标记取件");
+  });
+  host.querySelectorAll("[data-pkun]").forEach(el => el.onclick = () => {
+    const p = (state.data.pickups || []).find(x => x.id === el.dataset.pkun); if (!p) return;
+    p.takenAt = null; p._dirty = true;
+    saveLocal(); scheduleSync(); render(); toast("已恢复为待取");
+  });
+  host.querySelectorAll("[data-pkdel]").forEach(el => el.onclick = () => {
+    const p = (state.data.pickups || []).find(x => x.id === el.dataset.pkdel); if (!p) return;
+    confirmDialog({ title:"删除这条取件码？", desc:`要删除「${escHtml(p.company || "快递")} ${escHtml(readableText(p.code, ""))}」吗？`, danger:true, onYes: () => {
+      state.data.pickups = (state.data.pickups || []).filter(x => x.id !== p.id);
+      addPendingDelete("pickups", p.id);
+      saveLocal(); scheduleSync(); render(); toast("已删除");
+    }});
+  });
+  const tt = $("#pkTakenToggle");
+  if (tt) tt.onclick = () => {
+    const g = $("#pkTakenGroup"); if (!g) return;
+    const show = g.style.display === "none";
+    g.style.display = show ? "block" : "none";
+    const caret = tt.querySelector(".pk-caret"); if (caret) caret.textContent = show ? "▴" : "▾";
+  };
+}
+
+// 添加一条取件码
+function addPickup(patch) {
+  const company = (patch && patch.company) || "其他";
+  const code = String((patch && patch.code) || "").trim();
+  if (!code) { toast("取件码不能为空", "is-warn"); return false; }
+  const item = {
+    id: uid(),
+    company,
+    code,
+    station: String((patch && patch.station) || "").trim(),
+    shelf: String((patch && patch.shelf) || "").trim(),
+    note: String((patch && patch.note) || "").trim(),
+    createdAt: nowISO(),
+    takenAt: null,
+    _dirty: true,
+  };
+  state.data.pickups = state.data.pickups || [];
+  state.data.pickups.push(item);
+  // 记住这次选的快递公司/驿站，下次自动带出，少打字
+  if (!state.pkLast) state.pkLast = { company: "", station: "" };
+  if (company && company !== "其他") state.pkLast.company = company;
+  if (item.station) state.pkLast.station = item.station;
+  saveLocal(); scheduleSync(); render();
+  return true;
+}
+
+// 初始化取件码页的交互（只绑一次）
+function initPickups() {
+  const sel = $("#pkCompany");
+  if (!sel || sel.dataset.inited) return;
+  sel.dataset.inited = "1";
+  sel.innerHTML = PK_COMPANIES.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("");
+
+  const codeEl = $("#pkCode"), staEl = $("#pkStation");
+
+  const add = () => {
+    if (!addPickup({ company: sel.value, code: codeEl.value, station: staEl.value })) return;
+    codeEl.value = "";
+    codeEl.focus();
+  };
+  $("#pkAddBtn").onclick = add;
+  [codeEl, staEl].forEach(el => el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }));
+
+  // 粘贴识别
+  $("#btnPkPasteToggle").onclick = () => {
+    const box = $("#pkPasteBox");
+    const show = box.style.display === "none";
+    box.style.display = show ? "block" : "none";
+    if (show) $("#pkPasteText").focus();
+  };
+  $("#pkPasteCancel").onclick = () => {
+    $("#pkPasteText").value = "";
+    $("#pkPasteBox").style.display = "none";
+  };
+  $("#pkPasteGo").onclick = () => {
+    const txt = $("#pkPasteText").value || "";
+    const r = parsePickupText(txt);
+    if (!r.code) { toast("没认出取件码，请手动填一下", "is-warn"); if (r.company) sel.value = r.company; if (r.station) staEl.value = r.station; return; }
+    if (addPickup(r)) {
+      $("#pkPasteText").value = "";
+      $("#pkPasteBox").style.display = "none";
+      toast(`已添加：${r.company || "快递"} ${r.code}`, "is-good");
+    }
+  };
+
+}
+
+// 进入「取件码」页时：把上次选的快递公司/驿站带出来，并自动把光标放到取件码框里（手动录入才够快）
+function fillPickupLast() {
+  const sel = $("#pkCompany"), staEl = $("#pkStation"), codeEl = $("#pkCode");
+  if (!sel || !codeEl) return;
+  if (state.pkLast && state.pkLast.company) sel.value = state.pkLast.company;
+  if (staEl && state.pkLast && state.pkLast.station) staEl.value = state.pkLast.station;
+  setTimeout(() => { try { codeEl.focus(); } catch (e) {} }, 60);
+}
+
 /* ---------------------- 总渲染 ---------------------- */
 function render() {
   renderHome();
@@ -2566,6 +2890,7 @@ function render() {
   renderNotes();
   renderNoteEditor();
   renderPomo();
+  renderPickups();
   renderSettings();
 }
 
@@ -2736,6 +3061,15 @@ async function tryUnlock(pass) {
     const ps = await supaLoad(TABLES.pomodoros);      if (ps.length) state.data.pomoSessions = ps;
     const fs = await supaLoad("wb2_folders_v1");      if (fs.length) state.data.folders = fs;
     const pp = await supaLoad("wb2_pomo_projects");   if (pp.length) state.data.pomoProjects = pp;
+    // 取件码（登录时一并拉下来并解密；表还没建好时不阻断，交给 try/catch 软放行）
+    const pk = await supaLoad(TABLES.pickups);
+    if (pk.length) {
+      state.data.pickups = await Promise.all(pk.map(async p => ({
+        ...p,
+        code: await decField(pass, p.code),
+        note: p.note ? await decField(pass, p.note) : "",
+      })));
+    }
     return true;
   } catch (e) {
     // 任何意外都不阻断（让用户进 APP 看 UI）
@@ -2865,6 +3199,7 @@ $("#btnAbout").onclick = () => {
   applyTheme(localStorage.getItem("wb2_theme_pre") || "light");
   const oldBtn = $("#btnTheme");
   oldBtn.addEventListener("click", () => localStorage.setItem("wb2_theme_pre", state.theme));
+  initPickups();
   await bootLogin();
 })();
 
