@@ -380,6 +380,8 @@ a { color: inherit; text-decoration: none; }
 .note-folder-move { display:inline-flex; align-items:center; gap:4px; }
 .note-folder-select { font-size: 11px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; max-width: 120px; }
 .note-editor-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+.note-editor-body .preview,
+.note-editor-body textarea { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .note-editor-body textarea { padding: 18px; font-size: 14px; line-height: 1.65; resize: none; height: 100%; border-right: 1px solid var(--line-soft); }
 .note-editor-body .preview { padding: 18px; overflow-y: auto; font-size: 14px; line-height: 1.65; overflow-x: hidden; word-break: break-word; overflow-wrap: anywhere; }
 .note-editor-empty { display:flex; align-items:center; justify-content:center; height: 100%; color: var(--ink-muted); flex-direction: column; gap: 12px; }
@@ -446,8 +448,8 @@ a { color: inherit; text-decoration: none; }
 }
 .drawer-mask.is-open { opacity: 1; pointer-events: auto; }
 .drawer {
-  position: fixed; top: 0; right: -100%; bottom: 0;
-  width: 480px; max-width: 100%;
+  position: fixed; top: 0; right: -100%;
+  width: 480px; max-width: 100%; height: 100dvh;
   background: var(--bg);
   z-index: 40;
   display: flex; flex-direction: column;
@@ -460,7 +462,7 @@ a { color: inherit; text-decoration: none; }
 .drawer-title { font-size: 18px; font-weight: 700; }
 .drawer-close { width: 36px; height: 36px; border-radius: 10px; display:grid; place-items:center; color: var(--ink-muted); }
 .drawer-close:hover { background: var(--card-2); color: var(--ink); }
-.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px; display:flex; flex-direction:column; gap: 18px; }
+.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px; display:flex; flex-direction:column; gap: 18px; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .drawer-foot { padding: 16px 22px; border-top: 1px solid var(--line-soft); display:flex; gap: 10px; justify-content: flex-end; }
 
 .field { display:flex; flex-direction:column; gap: 6px; }
@@ -600,7 +602,7 @@ a { color: inherit; text-decoration: none; }
   .notes-layout .notes-list { max-height: none; }
   /* 手机端进笔记：卡片撑满屏幕边边、去外层白边（方案A：父层main左右padding清零贴边，不用负边距，根治iOS左右滑） */
   .main:has(.notes-layout.show-editor) { padding-left: 8px; padding-right: 8px; }
-  .notes-layout.show-editor .note-editor { height: calc(100vh - var(--topbar-h)); border-radius: var(--radius); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .notes-layout.show-editor .note-editor { height: calc(100dvh - var(--topbar-h)); border-radius: var(--radius); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   .note-editor-body { grid-template-columns: 1fr; }
   .note-editor-body textarea { border-right: none; border-bottom: 1px solid var(--line-soft); }
   .drawer { width: 100vw; padding-top: env(safe-area-inset-top, 0px); }
@@ -1176,7 +1178,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.70"; // 单文件内联版：取件码管家优化——①修复苹果端输入框自动放大；②新增截图识别（选图/粘贴图片自动读字）；③支持修改已添加的取件信息。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
+const APP_VERSION = "V1.0.71"; // 单文件内联版：UI 细节修复——①去掉取件码空状态提示文字；②修复备忘录手机端内容滑动；③修复苹果端新建待办抽屉无法上下滚动。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2829,7 +2831,7 @@ function renderPickups() {
   const host = $("#pkList");
   if (!host) return;
   if (!all.length) {
-    host.innerHTML = `<div class="empty"><div class="empty-title">还没有取件码</div><div class="empty-sub">在上面填取件码添加，或者点"粘贴识别"把整段短信粘进来</div></div>`;
+    host.innerHTML = "";
     return;
   }
 
