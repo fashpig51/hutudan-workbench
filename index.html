@@ -462,7 +462,7 @@ a { color: inherit; text-decoration: none; }
 .drawer-title { font-size: 18px; font-weight: 700; }
 .drawer-close { width: 36px; height: 36px; border-radius: 10px; display:grid; place-items:center; color: var(--ink-muted); }
 .drawer-close:hover { background: var(--card-2); color: var(--ink); }
-.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px; display:flex; flex-direction:column; gap: 18px; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+.drawer-body { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 22px; display:flex; flex-direction:column; gap: 18px; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .drawer-foot { padding: 16px 22px; border-top: 1px solid var(--line-soft); display:flex; gap: 10px; justify-content: flex-end; }
 
 .field { display:flex; flex-direction:column; gap: 6px; }
@@ -487,13 +487,15 @@ a { color: inherit; text-decoration: none; }
 .recur-opt.is-active { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 
 /* ---------- 新建待办整页重设计（V1.0.30） ---------- */
-.td-sheet { display:flex; flex-direction:column; gap: 22px; width: 100%; max-width: 100%; box-sizing: border-box; }
-.td-block { display:flex; flex-direction:column; gap: 9px; width: 100%; max-width: 100%; box-sizing: border-box; }
+.td-sheet { display:flex; flex-direction:column; gap: 22px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.td-block { display:flex; flex-direction:column; gap: 9px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .td-cap { font-size: 13px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.02em; }
 .td-title { width:100%; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 17px; font-weight: 600; color: var(--ink); }
 .td-title::placeholder { color: var(--ink-muted); font-weight: 500; }
 .td-desc { width:100%; padding: 14px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 15px; line-height: 1.6; color: var(--ink); min-height: 92px; resize: vertical; }
-.td-field { width:100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-size: 15px; color: var(--ink); }
+.td-field { width: 100%; max-width: 100%; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-size: 15px; color: var(--ink); }
+/* 苹果手机的时间选择框自带很宽的固定尺寸，不压住会把整个卡片撑出屏幕 */
+input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-field[type="time"] { min-width: 0; flex-shrink: 1; }
 .td-prio { gap: 10px; }
 .td-prio .prio-opt { padding: 14px 0; border-radius: 14px; font-size: 14px; font-weight: 600; display:flex; align-items:center; justify-content:center; gap: 7px; }
 .td-prio .prio-opt .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -1178,7 +1180,7 @@ a { color: inherit; text-decoration: none; }
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.71"; // 单文件内联版：UI 细节修复——①去掉取件码空状态提示文字；②修复备忘录手机端内容滑动；③修复苹果端新建待办抽屉无法上下滚动。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
+const APP_VERSION = "V1.0.72"; // 单文件内联版：①修复新建待办截止/创建时间卡片横向出屏（苹果时间选择框固有宽度压回屏内）；②快递公司/驿站"上次记忆"上云，多端同步；③（排查）安卓端浏览器顶部"小哥工作台安卓版"确认非网页内容，为浏览器搜索框残留词。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1554,8 +1556,22 @@ async function supaLoad(table) {
   // 把 user_id 这列剥掉
   return res.map(({user_id, ...x}) => x);
 }
-// 删除传播：本地删了某条，记下 id，等下次 push 时从云端也删（不再整批删全表）
-const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects", pickups: TABLES.pickups };
+// 从拉下来的取件记录里剥出"上次记忆"那条固定记录：真实条目返回给列表，记忆按时间新旧恢复到本地（新的赢）
+function splitPickupLast(rows) {
+  const real = [];
+  for (const p of (rows || [])) {
+    if (p && p.id === PK_LAST_ID) {
+      const t = String(p.note || p.createdAt || "");
+      if (!state.pkLast) state.pkLast = { company: "", station: "" };
+      if (!state.pkLast.t || t > String(state.pkLast.t)) {
+        state.pkLast = { company: p.company || "", station: p.station || "", t };
+      }
+    } else real.push(p);
+  }
+  return real;
+}
+
+// 删除传播：本地删了某条，记下 id，等下次 push 时从云端也删（不再整批删全表）const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects", pickups: TABLES.pickups };
 function addPendingDelete(kind, id) {
   if (!state.pendingDeletes) state.pendingDeletes = { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
   if (!state.pendingDeletes[kind]) state.pendingDeletes[kind] = [];
@@ -1618,6 +1634,16 @@ async function syncAll() {
       note: p.note ? await encField(state.pass, p.note) : p.note,
     }))));
     await flushPendingDeletes("pickups");
+    // 快递公司/驿站的"上次记忆"也跟着上云（一条固定编号的记录，不在列表里显示），多端同步
+    if (state.pkLast && (state.pkLast.company || state.pkLast.station)) {
+      const t = state.pkLast.t || nowISO();
+      await supaPush(TABLES.pickups, [{
+        id: PK_LAST_ID, user_id: state.userId,
+        company: state.pkLast.company || "", code: "",
+        station: state.pkLast.station || "", shelf: "",
+        note: t, createdAt: t, takenAt: null,
+      }]);
+    }
     // 全部推送成功：清掉本地「未上传」标记（下次纯拉取不会误保本地旧版）
     state.data.todos.forEach(t => delete t._dirty);
     state.data.notes.forEach(n => delete n._dirty);
@@ -1653,9 +1679,10 @@ async function syncLoad() {
     state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
     if (fs.length) state.data.folders = fs;
     if (pp.length) state.data.pomoProjects = pp;
-    // 取件码合并后解密（取件码/备注是密文，驿站名等原样）
+    // 取件码合并后解密（取件码/备注是密文，驿站名等原样）；"上次记忆"那条固定记录剥离出来恢复到本地记忆，不进列表
+    const pkReal = splitPickupLast(pk);
     state.data.pickups = await Promise.all(
-      mergeById(state.data.pickups || [], pk).map(async p => ({
+      mergeById(state.data.pickups || [], pkReal).map(async p => ({
         ...p,
         code: await decField(state.pass, p.code),
         note: p.note ? await decField(state.pass, p.note) : "",
@@ -2747,6 +2774,8 @@ function renderSettings() {
 /* ---------------------- 取件码管家 ---------------------- */
 // 常见快递公司 / 驿站（下拉用，也用于粘贴识别时认快递公司）
 const PK_COMPANIES = ["中通","圆通","韵达","申通","极兔","顺丰","京东","EMS","邮政","德邦","菜鸟驿站","兔喜","妈妈驿站","快宝","丰巢","近邻宝","熊猫快收","其他"];
+// 记忆记录的固定编号：跟着取件码表一起上云，实现"快递公司/驿站"多端同步（不在列表里显示）
+const PK_LAST_ID = "pk_last_v1";
 
 // 从一整段文字里抠出取件信息（短信 / 淘宝物流 / 菜鸟页面都能认）
 function parsePickupText(text) {
@@ -2817,7 +2846,7 @@ async function ocrImage(file) {
 }
 
 function renderPickups() {
-  const all = state.data.pickups || [];
+  const all = (state.data.pickups || []).filter(p => p.id !== PK_LAST_ID);
   const byNew = (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
   const pending = all.filter(p => !p.takenAt).sort(byNew);
   const taken   = all.filter(p =>  p.takenAt).sort((a, b) => String(b.takenAt || "").localeCompare(String(a.takenAt || "")));
@@ -2917,10 +2946,11 @@ function addPickup(patch) {
   };
   state.data.pickups = state.data.pickups || [];
   state.data.pickups.push(item);
-  // 记住这次选的快递公司/驿站，下次自动带出，少打字
+  // 记住这次选的快递公司/驿站，下次自动带出，少打字（带时间戳，多端同步时新的赢）
   if (!state.pkLast) state.pkLast = { company: "", station: "" };
   if (company && company !== "其他") state.pkLast.company = company;
   if (item.station) state.pkLast.station = item.station;
+  state.pkLast.t = nowISO();
   saveLocal(); scheduleSync(); render();
   return true;
 }
@@ -3172,8 +3202,8 @@ async function tryUnlock(pass) {
     const ps = await supaLoad(TABLES.pomodoros);      if (ps.length) state.data.pomoSessions = ps;
     const fs = await supaLoad("wb2_folders_v1");      if (fs.length) state.data.folders = fs;
     const pp = await supaLoad("wb2_pomo_projects");   if (pp.length) state.data.pomoProjects = pp;
-    // 取件码（登录时一并拉下来并解密；表还没建好时不阻断，交给 try/catch 软放行）
-    const pk = await supaLoad(TABLES.pickups);
+    // 取件码（登录时一并拉下来并解密；表还没建好时不阻断，交给 try/catch 软放行）；"上次记忆"那条剥出来恢复本地记忆
+    const pk = splitPickupLast(await supaLoad(TABLES.pickups));
     if (pk.length) {
       state.data.pickups = await Promise.all(pk.map(async p => ({
         ...p,
