@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#F5F1E8" />
-<title>Workbench · 糊涂蛋工作台</title>
+<title>糊涂蛋工作台</title>
 <script src="assets/js/config.js?v=V1.0.32"></script>
 <style>
 /* ============================================================
@@ -494,8 +494,17 @@ a { color: inherit; text-decoration: none; }
 .td-title::placeholder { color: var(--ink-muted); font-weight: 500; }
 .td-desc { width:100%; padding: 14px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 15px; line-height: 1.6; color: var(--ink); min-height: 92px; resize: vertical; }
 .td-field { width: 100%; max-width: 100%; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-size: 15px; color: var(--ink); }
-/* 苹果手机的时间选择框自带很宽的固定尺寸，不压住会把整个卡片撑出屏幕 */
-input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-field[type="time"] { min-width: 0; flex-shrink: 1; }
+/* 苹果手机的时间选择框带原生外观时会硬扛固定宽度、把卡片撑出屏幕：
+   去掉原生外观 + 锁死宽度才能压回容器内（V1.0.73 根治） */
+input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-field[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .td-prio { gap: 10px; }
 .td-prio .prio-opt { padding: 14px 0; border-radius: 14px; font-size: 14px; font-weight: 600; display:flex; align-items:center; justify-content:center; gap: 7px; }
 .td-prio .prio-opt .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -655,6 +664,12 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
   .td-title { padding: 12px 14px; font-size: 15px; border-radius: 14px; }
   .td-desc { padding: 10px 14px; font-size: 14px; min-height: 64px; border-radius: 14px; }
   .td-field { padding: 10px 14px; font-size: 14px; border-radius: 12px; }
+  /* 手机端兜底：时间选择框宽度锁死 + 面板裁掉横向溢出，杜绝时间卡片出屏 */
+  input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-field[type="time"] {
+    -webkit-appearance: none; appearance: none;
+    display: block; width: 100% !important; min-width: 0 !important; max-width: 100% !important;
+  }
+  .td-sheet, .td-block { overflow-x: hidden; }
   .td-prio { gap: 8px; }
   .td-prio .prio-opt { padding: 10px 0; font-size: 13px; border-radius: 12px; }
   .td-tags { padding: 10px; min-height: 42px; border-radius: 12px; }
@@ -1180,7 +1195,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.72"; // 单文件内联版：①修复新建待办截止/创建时间卡片横向出屏（苹果时间选择框固有宽度压回屏内）；②快递公司/驿站"上次记忆"上云，多端同步；③（排查）安卓端浏览器顶部"小哥工作台安卓版"确认非网页内容，为浏览器搜索框残留词。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
+const APP_VERSION = "V1.0.73"; // 单文件内联版：①根治苹果端新建待办时间卡片出屏（时间选择框去原生外观+锁死宽度+手机端兜底）；②网页标题理正为"糊涂蛋工作台"（安卓浏览器顶部"小哥工作台下载"为浏览器书签/搜索残留，非网页内容）。——第 6 块内容：快递取件码集中管理。①手动添加主打（打开即聚焦取件码框、手机弹数字键盘、回车即存、记住上次选的快递公司/驿站）；②粘贴整段文字（短信/淘宝物流/菜鸟页面）自动抠出快递公司+取件码+驿站+货架号；③待取的排最前且取件码大字号显示，标记已取后折叠到下方；④取件码与备注上云前加密，驿站名不加密以便显示搜索；⑤云端新增第 6 张表 wb2_pickups。沿用 V1.0.68 的自动刷新防呆
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
