@@ -756,10 +756,10 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
   line-height: 1.2; font-variant-numeric: tabular-nums;
   word-break: break-all;
 }
-.pk-head { display:flex; align-items:flex-start; gap:10px; }
-.pk-meta { font-size: 12px; color: var(--ink-muted); margin-top: 6px; line-height: 1.5; }
+.pk-head { display:flex; align-items:center; gap:8px; }
+.pk-meta { font-size: 12px; color: var(--ink-muted); margin-top: 4px; line-height: 1.5; }
 .pk-head .pk-company {
-  flex: 0 0 auto; width: auto; margin: 2px 0 0 0; padding: 2px 8px; border-radius: 6px;
+  flex: 0 0 auto; width: auto; margin: 0; padding: 2px 8px; border-radius: 6px;
   background: var(--card-2); color: var(--ink-soft); font-weight: 600; font-size: 12px; line-height: 1.4; cursor: default;
 }
 .pk-note { font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
@@ -1193,7 +1193,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.78"; // 单文件内联版：①取件码卡片——快递公司标签从"取件码下方单独一行"提到"与取件码同一行、顶部对齐"（pk-head 弹性行，标签顶对齐大字号取件码，驿站/货架/日期仍在下方一行）；②安卓等触屏设备进入取件码页不再自动聚焦取件码框，避免一进页面就弹出键盘，桌面端保留原聚焦习惯。
+const APP_VERSION = "V1.0.79"; // 单文件内联版：取件码卡片二次修正——快递公司标签、取件码、操作按钮三者在同一行按竖向居中对齐（根据老板示意图：蓝=快递标签、绿=取件码、橙=已取/编辑/删除按钮、红=驿站+创建日期），驿站/日期行大小不变。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
