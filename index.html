@@ -494,6 +494,7 @@ a { color: inherit; text-decoration: none; }
 .td-title::placeholder { color: var(--ink-muted); font-weight: 500; }
 .td-desc { width:100%; padding: 14px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); font-size: 15px; line-height: 1.6; color: var(--ink); min-height: 92px; resize: vertical; }
 .td-field { width: 100%; max-width: 100%; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-size: 15px; color: var(--ink); }
+input.td-field { overflow-x: auto; white-space: nowrap; text-overflow: clip; }
 /* 苹果手机的时间选择框带原生外观时会硬扛固定宽度、把卡片撑出屏幕：
    去掉原生外观 + 锁死宽度压回容器内。⚠️ 不加 display:block / overflow 裁切
    （V1.0.73 加过，手机端会高度塌陷、内容重叠——已回退） */
@@ -1193,7 +1194,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.81"; // 单文件内联版：取件码卡片按老板示意图重新排版——绿色圈（取件码）独占一大行，不再和快递公司、按钮挤同一行；第一行左边放快递公司（蓝）、右边放已取/编辑/删除（橙），第二行取件码大字（绿），第三行驿站+创建日期（红），红圈大小不变。
+const APP_VERSION = "V1.0.82"; // 单文件内联版：修复编辑取件信息弹窗里「驿站/地址」等单行输入框文字过长时被截断、后面内容看不到的问题——给 input.td-field 加上横向滚动，长文字可左右滑动查看。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
