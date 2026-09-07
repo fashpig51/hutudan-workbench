@@ -755,12 +755,12 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
   line-height: 1.2; font-variant-numeric: tabular-nums;
   word-break: break-all;
 }
-.pk-head { display:flex; align-items:center; gap:10px; width:100%; }
-.pk-head .pk-company {
+/* 第一行：左边快递公司、右边操作按钮 */
+.pk-top { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; }
+.pk-top .pk-company {
   flex: 0 0 auto; width: auto; margin: 0; padding: 2px 8px; border-radius: 6px;
   background: var(--card-2); color: var(--ink-soft); font-weight: 600; font-size: 12px; line-height: 1.4; cursor: default;
 }
-.pk-head .pk-code { flex: 1 1 auto; min-width: 0; }
 .pk-actions { display:flex; align-items:center; gap: 6px; flex-shrink: 0; }
 .pk-meta { font-size: 12px; color: var(--ink-muted); line-height: 1.5; }
 .pk-note { font-size: 12px; color: var(--ink-soft); line-height: 1.5; word-break: break-all; }
@@ -1193,7 +1193,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.80"; // 单文件内联版：取件码卡片按老板示意图重新排版——蓝色区放驿站标签、绿色区放取件码、橙色区放已取/编辑/删除按钮，三区在同一行横向排列；红色区（驿站提示+创建日期）独立在第二行，大小不变。
+const APP_VERSION = "V1.0.81"; // 单文件内联版：取件码卡片按老板示意图重新排版——绿色圈（取件码）独占一大行，不再和快递公司、按钮挤同一行；第一行左边放快递公司（蓝）、右边放已取/编辑/删除（橙），第二行取件码大字（绿），第三行驿站+创建日期（红），红圈大小不变。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -2887,9 +2887,8 @@ function renderPickups() {
     const when = p.createdAt ? fmtDate(p.createdAt) : "";
     const meta = [p.station, p.shelf ? ("货架 " + p.shelf) : "", when].filter(Boolean).join(" · ");
     return `<div class="pk-item ${isTaken ? "is-taken" : ""}">
-      <div class="pk-head">
+      <div class="pk-top">
         <span class="pk-company">${escHtml(p.company || "快递")}</span>
-        <div class="pk-code">${escHtml(code)}</div>
         <div class="pk-actions">
           ${isTaken
             ? `<button class="icon-btn" data-pkun="${p.id}" title="撤销已取">↩</button>`
@@ -2898,6 +2897,7 @@ function renderPickups() {
           <button class="icon-btn" data-pkdel="${p.id}" title="删除">🗑</button>
         </div>
       </div>
+      <div class="pk-code">${escHtml(code)}</div>
       ${meta ? `<div class="pk-meta">${escHtml(meta)}</div>` : ""}
       ${p.note ? `<div class="pk-note">${escHtml(readableText(p.note, "（无法显示）"))}</div>` : ""}
     </div>`;
