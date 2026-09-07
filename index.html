@@ -1194,7 +1194,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.82"; // 单文件内联版：修复编辑取件信息弹窗里「驿站/地址」等单行输入框文字过长时被截断、后面内容看不到的问题——给 input.td-field 加上横向滚动，长文字可左右滑动查看。
+const APP_VERSION = "V1.0.83"; // 单文件内联版：修复「已删除的取件码又复活」——根因是多端同步时另一台设备把旧记录又推回云端。新增"本地删除黑名单"：任何设备在本机删除的 id 会记住 7 天，期间即使云端还有这条记录，本机也不拉回来显示、更不会推回云端。适用于所有数据表（todos/notes/pomos/pickups 等），先缓解取件码最明显的问题。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1346,10 +1346,18 @@ function mergeById(localArr, cloudArr) {
     ...(state.pendingDeletes.todos||[]), ...(state.pendingDeletes.notes||[]),
     ...(state.pendingDeletes.pomos||[]), ...(state.pendingDeletes.pickups||[]),
   ]);
+  // 本地删除黑名单：7 天内即使云端还有，也不拉回来；避免另一台设备把旧记录又推回云端后这台被"复活"
+  const week = 7*24*60*60*1000;
+  const tomb = new Set();
+  for (const k of Object.keys(state.deletedIds || {})) {
+    for (const d of (state.deletedIds[k] || [])) {
+      if (d.id && d.at && (Date.now() - new Date(d.at).getTime()) < week) tomb.add(d.id);
+    }
+  }
   const byId = new Map();
   for (const l of (localArr || [])) if (l && l.id) byId.set(l.id, l);
   for (const c of (cloudArr || [])) if (c && c.id) {
-    if (pending.has(c.id)) continue;        // 等下次 push 真删；本次先不拉回来
+    if (pending.has(c.id) || tomb.has(c.id)) continue;        // 等下次 push 真删 / 本地已删黑名单 -> 先不拉回来
     const ex = byId.get(c.id);
     if (!ex) byId.set(c.id, { ...c, updatedAt: c.updatedAt || c.createdAt });   // 云端独有 -> 采用
     else if (ex._dirty) { /* 本地有未上传改动 -> 保本地，不覆盖 */ }
@@ -1412,6 +1420,7 @@ const state = {
   cloudOk: true,        // 联网标记：supaFetch 失败会自动置 false（UI 切到离线模式）
   notifiedOffline: false,
   pendingDeletes: { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] },  // 本地已删、待下次 push 时从云端也删的 id
+  deletedIds: { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] },        // 本地删除黑名单：删过的 id 保留 7 天，期间即使云端还有也不拉回来/不推回去
 };
 
 const LS_KEY = (k) => "wb2_" + state.userId + "_" + k;
@@ -1441,8 +1450,17 @@ function setSyncUI(s, lbl) {
 }
 
 /* ---------------------- 本地缓存 ---------------------- */
+function cleanupDeletedIds() {
+  const week = 7*24*60*60*1000;
+  const now = Date.now();
+  if (!state.deletedIds) return;
+  for (const k of Object.keys(state.deletedIds)) {
+    state.deletedIds[k] = (state.deletedIds[k] || []).filter(d => d.id && d.at && (now - new Date(d.at).getTime()) < week);
+  }
+}
 function saveLocal() {
   if (!state.userId) return;
+  cleanupDeletedIds();
   const k = LS_KEY("bundle");
   const payload = {
     theme: state.theme,
@@ -1453,6 +1471,7 @@ function saveLocal() {
     pomoSessions: state.data.pomoSessions,
     pickups: state.data.pickups,
     pendingDeletes: state.pendingDeletes,
+    deletedIds: state.deletedIds,
     todoSort: state.todoSort,
     collapsedSeries: state.collapsedSeries,
     pkLast: state.pkLast,
@@ -1475,6 +1494,9 @@ function loadLocal() {
     state.data.pickups = p.pickups || [];
     state.pendingDeletes = p.pendingDeletes || { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
     if (!state.pendingDeletes.pickups) state.pendingDeletes.pickups = [];
+    state.deletedIds = p.deletedIds || { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
+    if (!state.deletedIds.pickups) state.deletedIds.pickups = [];
+    cleanupDeletedIds();
     state.todoSort = p.todoSort || "new";
     state.collapsedSeries = p.collapsedSeries || {};
     state.pkLast = p.pkLast || { company: "", station: "" };
@@ -1591,6 +1613,10 @@ function addPendingDelete(kind, id) {
   if (!state.pendingDeletes) state.pendingDeletes = { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
   if (!state.pendingDeletes[kind]) state.pendingDeletes[kind] = [];
   if (!state.pendingDeletes[kind].includes(id)) state.pendingDeletes[kind].push(id);
+  // 同步记下"本地黑名单"：7 天内即使云端还有这条记录，也不拉回来显示、也不会再推回云端
+  if (!state.deletedIds) state.deletedIds = { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
+  if (!state.deletedIds[kind]) state.deletedIds[kind] = [];
+  if (!state.deletedIds[kind].find(x => x.id === id)) state.deletedIds[kind].push({ id, at: nowISO() });
 }
 async function flushPendingDeletes(kind) {
   const ids = (state.pendingDeletes && state.pendingDeletes[kind]) || [];
