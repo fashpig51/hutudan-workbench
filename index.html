@@ -1194,7 +1194,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.84"; // 单文件内联版：①根治「已删除的取件码又复活」——上轮的本地黑名单只记得住本机删的，跨设备/旧版本删除的管不到；现把"共享删除名单"也存到云端一条固定编号记录（pk_tombstones_v1，复用现有取件码表、无需新建表），所有设备同步时互相共享删除记录：别台删过的，本机不拉回来显示、也不再推回云端，老版本删过没记上名单的"僵尸记录"也会在同步时被清掉；②所有页面内容底部与左侧栏（设置按钮）底部多留空隙，不再贴浏览器底边。
+const APP_VERSION = "V1.0.85"; // 单文件内联版：①根治「已删除的取件码又复活」——上轮的本地黑名单只记得住本机删的，跨设备/旧版本删除的管不到；现把"共享删除名单"也存到云端一条固定编号记录（pk_tombstones_v1，复用现有取件码表、无需新建表），所有设备同步时互相共享删除记录：别台删过的，本机不拉回来显示、也不再推回云端，老版本删过没记上名单的"僵尸记录"也会在同步时被清掉；名单推送为合并式（先拉云端名单并进去再写回，防止设备间互相覆盖）；②所有页面内容底部与左侧栏（设置按钮）底部多留空隙，不再贴浏览器底边。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1704,12 +1704,24 @@ async function syncAll() {
         note: t, createdAt: t, takenAt: null,
       }]);
     }
-    // 共享删除名单也跟着上云：让所有设备都知道哪些记录已删（别台就不会把旧记录又推回来"复活"）
+    // 共享删除名单也跟着上云：让所有设备都知道哪些记录已删（别台就不会把旧记录又推回来"复活"）。
+    // 合并式推送：先拉云端现有名单，与本机名单合并去重再写回，防止某台设备名单不全把云端名单覆盖丢。
     try {
-      const tombList = ((state.deletedIds && state.deletedIds.pickups) || []).slice(-500);
+      const week = 7*24*60*60*1000;
+      let merged = (((state.deletedIds && state.deletedIds.pickups) || [])).filter(d => d && d.id && d.at && (Date.now() - new Date(d.at).getTime()) < week);
+      const cur = await supaFetch(`/rest/v1/${TABLES.pickups}?id=eq.${PK_TOMB_ID}&limit=1`, { method: "GET" });
+      if (Array.isArray(cur) && cur[0] && cur[0].code) {
+        try {
+          const cl = JSON.parse(String(cur[0].code || "[]"));
+          if (Array.isArray(cl)) for (const d of cl) {
+            if (d && d.id && d.at && !merged.find(x => x.id === d.id)) merged.push(d);
+          }
+        } catch (e) { /* 云端名单坏了就用本机的 */ }
+      }
+      merged = merged.filter(d => (Date.now() - new Date(d.at).getTime()) < week).slice(-500);
       await supaPush(TABLES.pickups, [{
         id: PK_TOMB_ID, user_id: state.userId,
-        company: "", code: JSON.stringify(tombList),
+        company: "", code: JSON.stringify(merged),
         station: "", shelf: "", note: "",
         createdAt: nowISO(), takenAt: null,
       }]);
