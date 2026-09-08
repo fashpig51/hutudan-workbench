@@ -150,7 +150,7 @@ a { color: inherit; text-decoration: none; }
   width: var(--sidebar-w);
   background: var(--bg);
   border-right: 1px solid var(--line-soft);
-  padding: 36px 0 16px;
+  padding: 36px 0 40px;   /* 底部留空隙：设置齿轮不贴屏幕底（2026-09-08 老板要求） */
   display:flex; flex-direction:column; align-items:center; gap:8px;
   z-index: 15;
 }
@@ -184,7 +184,7 @@ a { color: inherit; text-decoration: none; }
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 36px 80px;
+  padding: 14px 36px 128px;   /* 底部多留空隙：最后一张卡片不贴浏览器底（2026-09-08 老板要求） */
   scroll-behavior: smooth;
 }
 .main::-webkit-scrollbar { width: 8px; }
@@ -607,7 +607,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 }
 @media (max-width: 760px) {
   :root { --sidebar-w: 64px; --topbar-h: 50px; }
-  .main { padding: 6px 16px 96px; }
+  .main { padding: 6px 16px 148px; }   /* 手机端底部留更大空隙（浏览器工具栏会盖住一部分） */
   .home-hero { grid-template-columns: 1fr; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .stat-num { font-size: 40px; }
@@ -1194,7 +1194,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.83"; // 单文件内联版：修复「已删除的取件码又复活」——根因是多端同步时另一台设备把旧记录又推回云端。新增"本地删除黑名单"：任何设备在本机删除的 id 会记住 7 天，期间即使云端还有这条记录，本机也不拉回来显示、更不会推回云端。适用于所有数据表（todos/notes/pomos/pickups 等），先缓解取件码最明显的问题。
+const APP_VERSION = "V1.0.84"; // 单文件内联版：①根治「已删除的取件码又复活」——上轮的本地黑名单只记得住本机删的，跨设备/旧版本删除的管不到；现把"共享删除名单"也存到云端一条固定编号记录（pk_tombstones_v1，复用现有取件码表、无需新建表），所有设备同步时互相共享删除记录：别台删过的，本机不拉回来显示、也不再推回云端，老版本删过没记上名单的"僵尸记录"也会在同步时被清掉；②所有页面内容底部与左侧栏（设置按钮）底部多留空隙，不再贴浏览器底边。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1594,6 +1594,7 @@ async function supaLoad(table) {
   return res.map(({user_id, ...x}) => x);
 }
 // 从拉下来的取件记录里剥出"上次记忆"那条固定记录：真实条目返回给列表，记忆按时间新旧恢复到本地（新的赢）
+// 同时剥出"共享删除名单"那条固定记录：把别台设备删过的记录 id 并进本机黑名单（7 天内不拉回来/不推回去）
 function splitPickupLast(rows) {
   const real = [];
   for (const p of (rows || [])) {
@@ -1603,9 +1604,27 @@ function splitPickupLast(rows) {
       if (!state.pkLast.t || t > String(state.pkLast.t)) {
         state.pkLast = { company: p.company || "", station: p.station || "", t };
       }
+    } else if (p && p.id === PK_TOMB_ID) {
+      mergePickupTombstones(p.code);
     } else real.push(p);
   }
   return real;
+}
+
+// 把云端共享删除名单并进本机黑名单（按 id 去重），再清一次过期条目
+function mergePickupTombstones(json) {
+  try {
+    const list = JSON.parse(String(json || "[]"));
+    if (!Array.isArray(list)) return;
+    if (!state.deletedIds) state.deletedIds = { todos:[], notes:[], pomos:[], folders:[], projects:[], pickups:[] };
+    if (!state.deletedIds.pickups) state.deletedIds.pickups = [];
+    for (const d of list) {
+      if (d && d.id && !state.deletedIds.pickups.find(x => x.id === d.id)) {
+        state.deletedIds.pickups.push({ id: d.id, at: d.at || nowISO() });
+      }
+    }
+    cleanupDeletedIds();
+  } catch (e) { /* 名单坏了就忽略，不影响正常数据 */ }
 }
 
 // 删除传播：本地删了某条，记下 id，等下次 push 时从云端也删（不再整批删全表）const DEL_KIND_TABLE = { todos: TABLES.todos, notes: TABLES.notes, pomos: TABLES.pomodoros, folders: "wb2_folders_v1", projects: "wb2_pomo_projects", pickups: TABLES.pickups };
@@ -1685,6 +1704,16 @@ async function syncAll() {
         note: t, createdAt: t, takenAt: null,
       }]);
     }
+    // 共享删除名单也跟着上云：让所有设备都知道哪些记录已删（别台就不会把旧记录又推回来"复活"）
+    try {
+      const tombList = ((state.deletedIds && state.deletedIds.pickups) || []).slice(-500);
+      await supaPush(TABLES.pickups, [{
+        id: PK_TOMB_ID, user_id: state.userId,
+        company: "", code: JSON.stringify(tombList),
+        station: "", shelf: "", note: "",
+        createdAt: nowISO(), takenAt: null,
+      }]);
+    } catch (e) { /* 名单推送失败不影响正常数据同步 */ }
     // 全部推送成功：清掉本地「未上传」标记（下次纯拉取不会误保本地旧版）
     state.data.todos.forEach(t => delete t._dirty);
     state.data.notes.forEach(n => delete n._dirty);
@@ -1720,7 +1749,7 @@ async function syncLoad() {
     state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
     if (fs.length) state.data.folders = fs;
     if (pp.length) state.data.pomoProjects = pp;
-    // 取件码合并后解密（取件码/备注是密文，驿站名等原样）；"上次记忆"那条固定记录剥离出来恢复到本地记忆，不进列表
+    // 取件码合并后解密（取件码/备注是密文，驿站名等原样）；"上次记忆"与"共享删除名单"两条固定记录剥离出来，不进列表
     const pkReal = splitPickupLast(pk);
     state.data.pickups = await Promise.all(
       mergeById(state.data.pickups || [], pkReal).map(async p => ({
@@ -1729,6 +1758,9 @@ async function syncLoad() {
         note: p.note ? await decField(state.pass, p.note) : "",
       }))
     );
+    // 共享名单里已删除的记录，从本机列表里也清掉（老版本删过但没记上名单的"僵尸记录"就此消失）
+    const _tombSet = new Set((state.deletedIds.pickups || []).map(d => d.id));
+    if (_tombSet.size) state.data.pickups = state.data.pickups.filter(p => !_tombSet.has(p.id));
     saveLocal();
     _onSyncOk();
     setSyncUI("ok");
@@ -2821,6 +2853,9 @@ function renderSettings() {
 const PK_COMPANIES = ["中通","圆通","韵达","申通","极兔","顺丰","京东","EMS","邮政","德邦","菜鸟驿站","兔喜","妈妈驿站","快宝","丰巢","近邻宝","熊猫快收","其他"];
 // 记忆记录的固定编号：跟着取件码表一起上云，实现"快递公司/驿站"多端同步（不在列表里显示）
 const PK_LAST_ID = "pk_last_v1";
+// 共享删除名单的固定编号：也跟取件码表一起上云。哪台设备删过哪些记录，全部设备共享，
+// 这样任何一台都不会把别台已删的旧记录又推回云端/拉回来显示（根治"删了又复活"）
+const PK_TOMB_ID = "pk_tombstones_v1";
 
 // 从一整段文字里抠出取件信息（短信 / 淘宝物流 / 菜鸟页面都能认）
 function parsePickupText(text) {
