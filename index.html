@@ -1194,7 +1194,7 @@ input.td-field[type="datetime-local"], input.td-field[type="date"], input.td-fie
 //   7) 首页协调：黄卡片大字 22→26px、白卡片数字 56→44px（手机端保持 40/22），比例协调；
 //   8) 口令逻辑回退：首次（无缓存）显示确认框输 2 次，之后（有缓存）只输 1 次。
 // （V1.0.3 升级）
-const APP_VERSION = "V1.0.86"; // 单文件内联版：①【根治删除名单过期导致复活】删除名单有效期由 7 天延长到 180 天（9/8 写的名单到 9/17 正好过期，云端旧记录又被拉回来），并在打开页面/拉取后都按名单清理本地列表、渲染时三重过滤（上次记忆/名单记录/已删编号）；②【稳定性：一张表出错不再拖累全部】原来所有表挤在一个 try 里，待办/笔记任何一张推送失败，后面的取件码就压根不推送，新存的取件码上不了云→换设备或清缓存就"不见了"。现改为每张表独立容错、失败自动重试一次、各自成功才清"未上传"标记，剩下没传上去的下轮继续推；③上传与拉取互斥，避免同时改同一份数据打架。（此前版本：V1.0.85 共享删除名单上云+全页底部留空隙；V1.0.83 本地删除黑名单；V1.0.77~82 取件码管家打磨）
+const APP_VERSION = "V1.0.87"; // 单文件内联版：【根治"新增数据第二次登录就消失"＋稳定性全面加固】①登录加载由"云端整覆盖"改为"按编号合并"——以前一登录就拿云端数据整个盖掉本机，本机那些还没传上去的新记录（刚加的取件码等）直接被抹掉，这就是"加了东西下次登录没了"的根子；同时修掉登录时待办只拉前 5 条的旧毛病（改为全量）。②登录时先把本机缓存读回来再与云端合并，本机没传上去的一条都不丢。③一进工作台立刻补传一次（以前要等下次改动才上传，中间关页面就丢）。④自动同步里文件夹/专注项目也改为合并，不再整覆盖。⑤本机存档写入加固：先控量（专注记录≤2000、取件码≤800），写不进去时自动瘦身重试两级，最后仍失败会明确提示"存储写不进去"，不再静默吞掉导致数据悄悄丢失。
 const SUPA_URL  = "https://ktdlawiitofkhgklhyrz.supabase.co";
 const SUPA_KEY  = "sb_publishable_qdCdLOiKX4H_k_FTG12XFg_qJ2J_WfW";
 const TABLES = {
@@ -1461,6 +1461,9 @@ function cleanupDeletedIds() {
 function saveLocal() {
   if (!state.userId) return;
   cleanupDeletedIds();
+  // 控量：历史类记录不设上限会无限膨胀，最后把整个本机存档撑爆（写入失败的处理见下方）
+  if (state.data.pomoSessions && state.data.pomoSessions.length > 2000) state.data.pomoSessions = state.data.pomoSessions.slice(-2000);
+  if (state.data.pickups && state.data.pickups.length > 800) state.data.pickups = state.data.pickups.slice(-800);
   const k = LS_KEY("bundle");
   const payload = {
     theme: state.theme,
@@ -1477,7 +1480,33 @@ function saveLocal() {
     pkLast: state.pkLast,
     updatedAt: nowISO(),
   };
-  try { localStorage.setItem(k, JSON.stringify(payload)); } catch(e) {}
+  // 本机存储是有上限的（浏览器一般 5MB）。以前写不进去就静默吞掉 —— 表面看不出问题，
+  // 实际新数据根本没存住，下次一登录就没了。现在：先控量、写失败自动瘦身重试、实在不行明确提示。
+  try { localStorage.setItem(k, JSON.stringify(payload)); return true; }
+  catch (e) {
+    try {
+      // 第一级瘦身：专注记录只留最近 200 条（这类历史最占地方、丢了影响最小）
+      state.data.pomoSessions = state.data.pomoSessions.slice(-200);
+      localStorage.setItem(k, JSON.stringify(Object.assign({}, payload, { pomoSessions: state.data.pomoSessions })));
+      toast("本机存储空间紧张，已自动清理较早的专注记录", "is-warn");
+      return true;
+    } catch (e2) {
+      try {
+        // 第二级瘦身：只保住核心数据（待办/笔记/取件码），其余历史先丢
+        localStorage.setItem(k, JSON.stringify({
+          theme: state.theme, todos: state.data.todos, notes: state.data.notes,
+          pickups: state.data.pickups, folders: state.data.folders,
+          deletedIds: state.deletedIds, pendingDeletes: state.pendingDeletes,
+          pkLast: state.pkLast, todoSort: state.todoSort, updatedAt: nowISO(),
+        }));
+        toast("本机存储快满了，只保住了待办/笔记/取件码，请尽快导出备份", "is-warn");
+        return true;
+      } catch (e3) {
+        toast("本机存储写不进去了，请清理浏览器数据后及时导出备份", "is-warn");
+        return false;
+      }
+    }
+  }
 }
 function loadLocal() {
   const k = LS_KEY("bundle");
@@ -1786,8 +1815,9 @@ async function syncLoad() {
     const mergedNotes = mergeById(state.data.notes, ns.map(x => ({ ...x, content: x.locked ? "" : (x.content || "") })));
     state.data.notes = await Promise.all(mergedNotes.map(async n => ({ ...n, content: await decField(state.pass, n.content) })));
     state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
-    if (fs.length) state.data.folders = fs;
-    if (pp.length) state.data.pomoProjects = pp;
+    // 同样改为合并：本机新建但还没传上去的文件夹/项目，不会被云端旧数据盖掉
+    if (fs.length) state.data.folders = mergeById(state.data.folders, fs);
+    if (pp.length) state.data.pomoProjects = mergeById(state.data.pomoProjects, pp);
     // 取件码合并后解密（取件码/备注是密文，驿站名等原样）；"上次记忆"与"共享删除名单"两条固定记录剥离出来，不进列表
     const pkReal = splitPickupLast(pk);
     state.data.pickups = await Promise.all(
@@ -3253,7 +3283,12 @@ async function doLogin(p1, isAuto) {
   state.userId = uidHash;
   localStorage.setItem("wb2_last_uid", uidHash);
 
-  // 先去云端核对这份数据在不在
+  // 先把本机缓存读进来（里面有上次没来得及传到云端的记录），再去跟云端合并。
+  // 不先读的话，本机那些"还没传上去"的新数据会被云端旧数据直接盖掉 —— 这就是"加了东西下次登录没了"的根子。
+  loadLocal();
+  await decryptState();
+
+  // 再去云端核对这份数据在不在
   const ok = await tryUnlock(p1);
   if (!ok) {
     if (state.createMode) {
@@ -3290,6 +3325,9 @@ function afterEnter() {
   try { localStorage.setItem("wb2_remember_pass", state.pass); } catch (e) {}
   const bl = $("#btnLogout"); if (bl) bl.style.display = "inline-flex";
   startAutoSync();
+  // 一进来就先补传一次：把上次没传上去的（还标着"未上传"的）立刻推到云端。
+  // 以前只有"下次改动数据"时才触发上传，中间关掉页面就丢了（2026-09-22 稳定性加固）
+  scheduleSync();
 }
 
 $("#btnLogin").onclick = async () => { await doLogin($("#loginPass").value, false); };
@@ -3310,8 +3348,12 @@ $("#btnCreateSpace").onclick = () => {
   $("#loginErr").textContent = "";
 };
 async function tryUnlock(pass) {
-  // 拿 todos 任意一条做 sanity；接口失败/表缺失不会阻断入口
+  // ⚠️⚠️ 登录加载必须"合并"，绝不能整覆盖（2026-09-22 根治丢失问题）：
+  // 以前这里是「云端有数据 → state.data.X = 云端」，本机缓存里那些"还没传上去"的新记录
+  //（比如刚加的取件码）会被云端那份旧数据整个盖掉，表现就是"加了取件码，第二次登录没了"。
+  // 现在统一走 mergeById 与本机已有数据合并：本机独有的保留、本机改过的优先、云端新的也能下来。
   try {
+    // 先只查 5 条做"这份数据在不在"的核对 + 口令校验样本，不作为正式数据
     const rows = await supaFetch(`/rest/v1/${TABLES.todos}?user_id=eq.${state.userId}&select=*&limit=5`);
     if (!Array.isArray(rows) || rows.length === 0) {
       // 云端没这份数据：挡住，不让自动建空间（创建与否由 btnLogin 判断 state.createMode）
@@ -3323,21 +3365,33 @@ async function tryUnlock(pass) {
       const dec = await decrypt(pass, String(sample.title).replace("__ENC__:", ""));
       if (!dec) return false;     // 解不开才是真错（输错口令）
     }
-    state.data.todos = await Promise.all(rows.map(async t => ({ ...t, title: await decField(pass, t.title) })));
-    // 也拉 notes / pomos / folders / projects（任一失败都按"空"）
-    const ns = await supaLoad(TABLES.notes);         if (ns.length) state.data.notes = await Promise.all(ns.map(async x => ({ ...x, content: await decField(pass, x.content || "") })));
-    const ps = await supaLoad(TABLES.pomodoros);      if (ps.length) state.data.pomoSessions = ps;
-    const fs = await supaLoad("wb2_folders_v1");      if (fs.length) state.data.folders = fs;
-    const pp = await supaLoad("wb2_pomo_projects");   if (pp.length) state.data.pomoProjects = pp;
-    // 取件码（登录时一并拉下来并解密；表还没建好时不阻断，交给 try/catch 软放行）；"上次记忆"那条剥出来恢复本地记忆
-    const pk = splitPickupLast(await supaLoad(TABLES.pickups));
-    if (pk.length) {
-      state.data.pickups = await Promise.all(pk.map(async p => ({
+    // 正式数据：全量拉取后按编号合并（旧的 reliance on limit=5 会导致待办只显示 5 条）
+    const [ts, ns, ps, fs, pp, pk] = await Promise.all([
+      supaLoad(TABLES.todos), supaLoad(TABLES.notes), supaLoad(TABLES.pomodoros),
+      supaLoad("wb2_folders_v1"), supaLoad("wb2_pomo_projects"), supaLoad(TABLES.pickups),
+    ]);
+    state.data.todos = await Promise.all(
+      mergeById(state.data.todos, ts).map(async t => ({ ...t, title: await decField(pass, t.title) }))
+    );
+    state.data.notes = await Promise.all(
+      mergeById(state.data.notes, ns.map(x => ({ ...x, content: x.locked ? "" : (x.content || "") })))
+        .map(async n => ({ ...n, content: await decField(pass, n.content) }))
+    );
+    state.data.pomoSessions = mergeById(state.data.pomoSessions, ps);
+    if (fs.length) state.data.folders = mergeById(state.data.folders, fs);
+    if (pp.length) state.data.pomoProjects = mergeById(state.data.pomoProjects, pp);
+    // 取件码：合并后解密；"上次记忆"和"共享删除名单"两条固定记录剥出来，不进列表
+    const pkReal = splitPickupLast(pk);
+    state.data.pickups = await Promise.all(
+      mergeById(state.data.pickups || [], pkReal).map(async p => ({
         ...p,
         code: await decField(pass, p.code),
         note: p.note ? await decField(pass, p.note) : "",
-      })));
-    }
+      }))
+    );
+    // 已删除名单里的记录，本机列表里也一并清掉
+    const _tomb = new Set((state.deletedIds.pickups || []).map(d => d.id));
+    if (_tomb.size) state.data.pickups = state.data.pickups.filter(p => !_tomb.has(p.id));
     return true;
   } catch (e) {
     // 任何意外都不阻断（让用户进 APP 看 UI）
